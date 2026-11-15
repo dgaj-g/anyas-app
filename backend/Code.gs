@@ -15,6 +15,26 @@ const WORDS = ('rose comet pearl lily daisy poppy tulip pansy iris lilac peony o
   'bunny fawn kitten pony otter panda koala lamb duckling firefly butterfly ladybird bee sparkle glow ' +
   'shimmer twinkle gleam bright happy merry jolly sunny cosy gentle swift brave kind lucky').split(' ');
 
+// ---- setup (run by hand) ----
+function setup() {
+  const props = PropertiesService.getScriptProperties();
+  let ss;
+  if (!props.getProperty('SHEET_ID')) {
+    ss = SpreadsheetApp.create("Anya's App scores");
+    const sh = ss.getSheets()[0].setName('Attempts');
+    sh.getRange(1, 1, 1, HEADER.length).setValues([HEADER]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    ['A:F', 'J:K', 'M:O'].forEach(function (r) { sh.getRange(r).setNumberFormat('@'); });
+    ss.insertSheet('Keys');
+    props.setProperty('SHEET_ID', ss.getId());
+  } else ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID'));
+  if (!props.getProperty('ANYA_KEY') || !props.getProperty('DAD_KEY')) newKeys();
+  Logger.log('Spreadsheet: ' + ss.getUrl());
+}
+
+function pick() { return WORDS[Math.floor(Math.random() * WORDS.length)]; }
+function digits() { return String(Math.floor(Math.random() * 10000)).padStart(4, '0'); }
+
 function doGet() { return out({ ok: true, app: "Anya's App" }); }
 
 function doPost(e) {
@@ -112,26 +132,6 @@ function readAttempts(withDetail) {
     if (withDetail) { try { a.detail = JSON.parse(r[14] || '[]'); } catch (e) { a.detail = []; } }
     return a;
   });
-}
-
-// ---- setup (run by hand) ----
-function pick() { return WORDS[Math.floor(Math.random() * WORDS.length)]; }
-function digits() { return String(Math.floor(Math.random() * 10000)).padStart(4, '0'); }
-
-function setup() {
-  const props = PropertiesService.getScriptProperties();
-  let ss;
-  if (!props.getProperty('SHEET_ID')) {
-    ss = SpreadsheetApp.create("Anya's App scores");
-    const sh = ss.getSheets()[0].setName('Attempts');
-    sh.getRange(1, 1, 1, HEADER.length).setValues([HEADER]).setFontWeight('bold');
-    sh.setFrozenRows(1);
-    ['A:F', 'J:K', 'M:O'].forEach(function (r) { sh.getRange(r).setNumberFormat('@'); });
-    ss.insertSheet('Keys');
-    props.setProperty('SHEET_ID', ss.getId());
-  } else ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID'));
-  if (!props.getProperty('ANYA_KEY') || !props.getProperty('DAD_KEY')) newKeys();
-  Logger.log('Spreadsheet: ' + ss.getUrl());
 }
 
 // Makes fresh keys for both people and rewrites the Keys tab.

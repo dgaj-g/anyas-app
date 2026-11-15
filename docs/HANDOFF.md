@@ -29,13 +29,26 @@ Open http://localhost:8787/?fast=1&api=http://localhost:8787/api#k=test-anya (Da
 ## Gates (run before every deploy)
     cd ~/Sites/anyas-app && node tools/gates/g1-questions.js
     cd ~/Sites/anyas-app && NODE_PATH=$(npm root -g) node tools/gates/walk.js walk-out 390x844 375x667 820x1180 1180x820
+    cd ~/Sites/anyas-app && node tools/gates/g2-backend.js
 - G1 checks every question kind: the answer is right, the picture matches, options are sound; its planted faults must be caught.
 - The walk plays every lesson and quiz as a pupil at four screen sizes, checks nothing scrolls or spills, word limits, help steps, score saving, the offline case and Dad's page; its planted faults must be caught. Screenshots land in `walk-out/<size>/`. Look at them.
+- G2 runs `backend/Code.gs` against stand-in Google services: setup, keys, saving once only, formula-safe text, Dad-only detail, the wrong-key lock. Run it whenever `Code.gs` changes.
 
 ## Deploy
 - Front end: commit, push `main`; Pages rebuilds in about a minute. Bump `version` in `js/config.js` and `V` in `sw.js` together so phones pick up the new files.
-- Backend (only when `backend/Code.gs` changes): paste into the Apps Script project "Anya's App scores backend", Deploy → Manage deployments → edit → New version. The web-app address stays the same.
-- First-time backend setup: run `setup()` once in the editor (it makes the Sheet and the keys), deploy as web app (Execute as: Me; Access: Anyone), put the `/exec` address in `js/config.js`.
+- Backend (only when `backend/Code.gs` changes): paste into the Apps Script project "Anyas App scores backend", Deploy → Manage deployments → edit → New version. The web-app address stays the same.
+- First-time backend setup, in this order:
+  1. Name the project first: `Anyas App scores backend` (plain letters only; a dash or apostrophe in the name breaks Google's permission screen).
+  2. Paste `backend/Code.gs`, save.
+  3. Run `setup` once (it is the first function, so Run picks it). It makes the Sheet "Anya's App scores" and the keys. The permission click is Dad's.
+  4. Deploy → New deployment → Web app (Execute as: Me; Who has access: Anyone). Put the `/exec` address in `api` in `js/config.js`, bump the version, push.
+- Keys and links are in the `Keys` tab of the Sheet. `newKeys()` makes fresh ones (old ones stop working).
+- While `api` is empty the app still works: scores stay on her device and send themselves once `api` and her key are in place.
+
+## Getting in
+- Anya: open her ready-made link once, or type her key on the key screen. Spaces, dashes and capitals do not matter.
+- An iPhone or iPad Home Screen app keeps its own storage, apart from Safari. After "Add to Home Screen" she types her key once inside the Home Screen app.
+- Dad: `admin/` has a "Dad's key" box; his ready-made link fills it. Typing Dad's key on Anya's key screen also opens his page.
 
 ## Adding to it
 - New topic in Maths: add question kinds + lessons in `js/questions.js`, See-it activities in `js/lessons.js`, a card in `subject()` in `js/app.js`; extend G1.
