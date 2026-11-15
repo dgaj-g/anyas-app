@@ -8,6 +8,7 @@ No build step: plain HTML, CSS and JavaScript, served by GitHub Pages. Scores go
 - Resources Dad drops in: ~/Desktop/Claude Work/Anyas App/<Subject>/ (photos of her work stay there, never in the repo).
 - Design record, progress log: ~/Desktop/Claude Work/Anyas App/_build/SPEC.md and PROGRESS.md.
 - Keys: only in the `Keys` tab of the private Sheet "Anya's App scores" (and Script Properties). Never in the repo or in chat.
+- The Sheet and the Apps Script project "Anyas App scores backend" live in Dad's school Google Drive (his choice, 15 Nov 2026). Web app: Version 1, Execute as Me, access Anyone.
 
 ## Privacy rules (keep)
 - The public site and repo carry her first name only. No surname, school, class, photos of her work.
@@ -44,6 +45,7 @@ Open http://localhost:8787/?fast=1&api=http://localhost:8787/api#k=test-anya (Da
   4. Deploy → New deployment → Web app (Execute as: Me; Who has access: Anyone). Put the `/exec` address in `api` in `js/config.js`, bump the version, push.
 - Keys and links are in the `Keys` tab of the Sheet. `newKeys()` makes fresh ones (old ones stop working).
 - While `api` is empty the app still works: scores stay on her device and send themselves once `api` and her key are in place.
+- On this Mac (`localhost`) `api` is always empty unless the address carries `?api=`: tests never write to the real Sheet.
 
 ## Getting in
 - Anya: open her ready-made link once, or type her key on the key screen. Spaces, dashes and capitals do not matter.
