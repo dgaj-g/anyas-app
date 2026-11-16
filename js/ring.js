@@ -12,23 +12,24 @@ window.Ring = (function () {
     };
     return { half, cy, arc };
   }
-  /* o = { total: 180|360, parts: [{ v, cls }], live: true|false } */
+  /* o = { total: 180|360, parts: [{ v, cls, still }], live: true|false, note, words }
+     still: the piece is already there (it does not pour in again). note: words for the gap in place of its size. words: false = no sum line. */
   function html(o) {
     const total = o.total, g = geo(total), parts = o.parts.filter(p => p.v > 0), sum = parts.reduce((a, p) => a + p.v, 0);
     let s = `<svg viewBox="0 0 200 ${g.half ? 112 : 200}" aria-hidden="true"><path class="trk" stroke-width="${SW}" d="${g.arc(0, total, R)}"/>`;
     let at = 0, i = 0;
     for (const p of parts) {
-      const to = Math.min(total, at + p.v);
-      if (to > at) s += `<path class="seg dg-${p.cls}${o.live ? '' : ' anim'}" style="--i:${i}" pathLength="1" stroke-width="${SW}" d="${g.arc(at, to, R)}"/>`;
-      at = to; i++;
+      const to = Math.min(total, at + p.v), pour = !o.live && !p.still;
+      if (to > at) s += `<path class="seg dg-${p.cls}${pour ? ' anim' : ''}" style="--i:${i}" pathLength="1" stroke-width="${SW}" d="${g.arc(at, to, R)}"/>`;
+      at = to; if (!p.still) i++;
     }
     let note, tone = '';
     if (sum === total) { note = `${total}° ✓`; tone = ' good'; }
-    else if (sum < total) { s += `<path class="gap" stroke-width="${SW - 6}" d="${g.arc(sum, total, R)}"/>`; note = `${total - sum}° gap`; tone = ' bad'; }
+    else if (sum < total) { s += `<path class="gap" stroke-width="${SW - 6}" d="${g.arc(sum, total, R)}"/>`; note = o.note || `${total - sum}° gap`; tone = o.note ? '' : ' bad'; }
     else { const over = Math.min(total, sum - total); s += `<path class="over${o.live ? '' : ' anim'}" style="--i:${i}" pathLength="1" stroke-width="7" d="${g.arc(total - over, total, R + SW / 2 + 7)}"/>`; note = `${sum - total}° too much`; tone = ' bad'; }
     s += `<text class="note${tone}" x="${CX}" y="${g.half ? g.cy - 12 : g.cy}">${note}</text></svg>`;
     const words = parts.map(p => `<b class="dg-${p.cls}">${p.v}</b>`).join(' + ') + ` = ${sum}°`;
-    return `<div class="ring${g.half ? '' : ' full'}">${s}<p class="ringsum">${words}</p></div>`;
+    return `<div class="ring${g.half ? '' : ' full'}">${s}${o.words === false ? '' : `<p class="ringsum">${words}</p>`}</div>`;
   }
   /* The ring for one question, with her answer poured in (given), or the right answer. */
   function forQuestion(q, given) {

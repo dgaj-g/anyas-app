@@ -7,7 +7,11 @@
     one: 'Took away only one of the angles', subtract: 'Subtracted the two angles from each other',
     same: 'Copied an angle from the picture', twin: 'Missed an equal angle',
     other: 'Gave the other size of angle', inside: 'Gave the inside angle, not the outside one',
-    near: 'Close: an adding or subtracting slip'
+    near: 'Close: an adding or subtracting slip',
+    mixed: 'Took one angle away, then added the other', added: 'Added the angles but did not take them from the whole',
+    toobig: 'Answer bigger than the whole',
+    'plan-gap': 'Chose to take one angle from the other', 'plan-add': 'Chose to add to the whole instead of taking away',
+    'plan-mixed': 'Chose the working that takes one away then adds the other'
   };
   var MSG = {
     'bad-key': 'That key did not work.', locked: 'Too many tries. Wait five minutes.',
@@ -118,7 +122,7 @@
   }
   function stamp(a) { return a.finishedAt || a.startedAt || ''; }
   function time(a) { var t = new Date(stamp(a)).getTime(); return isNaN(t) ? 0 : t; }
-  function lessonOrder(l) { var n = parseInt(l, 10); return isNaN(n) ? 999 : n; }
+  function lessonOrder(l) { if (l === 'plan') return 3.5; var n = parseInt(l, 10); return isNaN(n) ? 999 : n; }
 
   // ---- main page ----
   function render(data) {

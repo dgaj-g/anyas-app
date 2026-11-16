@@ -1,5 +1,5 @@
 /* Network first, so a new version always arrives; the saved copy is only used with no signal. */
-const V = '2';
+const V = '3';
 const CACHE = 'anya-' + V;
 const CORE = ['./', 'index.html', 'css/app.css', 'fonts/quicksand.woff2', 'fonts/allura.woff2',
   'js/config.js', 'js/wordmark-data.js', 'js/fx.js', 'js/intro.js', 'js/store.js', 'js/diagram.js', 'js/questions.js',

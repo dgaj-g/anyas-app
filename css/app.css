@@ -223,6 +223,16 @@ body.booting #app { visibility: hidden; }
 .btn.small { min-height: 48px; padding: 8px 10px; font-size: 15px; }
 .btn.opt { min-height: 60px; font-size: 21px; }
 .sub.bad { color: #b5125f; } .sub:empty { display: none; }
+/* "Add or take away?": choices in words, and choices that are two lines of working */
+.btn.opt.words { padding: 8px; font-size: 17px; line-height: 1.2; text-wrap: balance; }
+@media (max-width: 699px) {   /* a longer job line gets the full width; the round counter sits above it */
+  .qhead.long { flex-direction: column-reverse; align-items: stretch; gap: 7px; } .qhead.long .count { justify-content: flex-start; }
+}
+@media (max-height: 760px) and (max-width: 699px) { #ring .ring.full svg { width: min(100%, 108px); } }
+.btn.opt.lines { display: grid; justify-items: center; gap: 1px; padding: 8px 14px; font-size: 19px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.btn.opt.no { opacity: .45; text-decoration: line-through; }
+.btn.opt.yes { background: #d8f7ee; border-color: #0b7562; color: #0b7562; }
+.work li.fact { font-weight: 600; color: var(--ink); }
 #ctl { justify-content: flex-end; }
 .fb { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 10px; align-items: center; } .fb.solo { grid-template-columns: minmax(0, 1fr); }
 .ringsum { margin: 2px 0 0; font: 700 15px/1.2 Quicksand, sans-serif; text-align: center; } .ringsum b { color: var(--t); }
@@ -252,6 +262,7 @@ body.booting #app { visibility: hidden; }
   .count:has(i:nth-child(10)) { font-size: 16px; gap: 6px; } .count:has(i:nth-child(10)) i { width: 8px; height: 8px; }
   .pic { max-height: 560px; }
   .btn { min-height: 62px; font-size: 22px; } .btn.small { min-height: 58px; font-size: 19px; } .btn.opt { min-height: 74px; font-size: 26px; }
+  .btn.opt.words { font-size: 23px; padding: 10px 18px; } .btn.opt.lines { font-size: 24px; padding: 10px 20px; }
   .duo, .row { gap: 14px; } .stack { gap: 14px; }
   .ans { font-size: 30px; gap: 10px; } .box { min-width: 140px; height: 64px; font-size: 32px; } .del { width: 64px; height: 64px; font-size: 26px; }
   .pad { gap: 12px; } .key { min-height: 70px; font-size: 30px; border-radius: 20px; }

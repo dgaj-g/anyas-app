@@ -18,9 +18,9 @@ No build step: plain HTML, CSS and JavaScript, served by GitHub Pages. Scores go
 - `index.html`, `css/app.css` — the pupil app shell and the "twilight rose" style. Fonts in `fonts/` (OFL).
 - `js/config.js` — `version` and `api` (the Apps Script web-app address; empty = scores stay on the device). Keep `V` in `sw.js` the same as `version`.
 - `js/intro.js`, `js/wordmark-data.js`, `js/fx.js` — the drawn "Anya's App" opening, sparkles, chimes.
-- `js/app.js` — screens and routes: `#/` home, `#/s/<subject>`, `#/maths/angles`, `#/maths/angles/<lesson>/<see|try|quiz>`.
+- `js/app.js` — screens and routes: `#/` home, `#/s/<subject>`, `#/maths/angles`, `#/maths/angles/<lesson>/<see|try|quiz>`. The lesson `plan` is "Add or take away?" (`#/maths/angles/plan/quiz`): a lesson with a `plan` list opens `Player.plan` instead of the Quiz.
 - `js/questions.js` — the question bank, checker and slip tags. `js/diagram.js` draws every picture from numbers. `js/ring.js` draws the adding-up ring.
-- `js/lessons.js` — "See it" (drag, sort, find the twins). `js/player.js` — "Try it" and the Quiz. `js/store.js` — keys, saving, offline queue.
+- `js/lessons.js` — "See it" (drag, sort, find the twins). `js/player.js` — "Try it", the Quiz, "Add or take away?" (she picks what to do; the app does the sums) and the score screen they share. `js/store.js` — keys, saving, offline queue.
 - `admin/` — Dad's page. `backend/Code.gs` — the Apps Script. `tools/` — icon and wordmark makers, mock server, gates.
 
 ## Run it locally
@@ -31,8 +31,8 @@ Open http://localhost:8787/?fast=1&api=http://localhost:8787/api#k=test-anya (Da
     cd ~/Sites/anyas-app && node tools/gates/g1-questions.js
     cd ~/Sites/anyas-app && NODE_PATH=$(npm root -g) node tools/gates/walk.js walk-out 390x844 375x667 820x1180 1180x820
     cd ~/Sites/anyas-app && node tools/gates/g2-backend.js
-- G1 checks every question kind: the answer is right, the picture matches, options are sound; its planted faults must be caught.
-- The walk plays every lesson and quiz as a pupil at four screen sizes, checks nothing scrolls or spills, word limits, help steps, score saving, the offline case and Dad's page; its planted faults must be caught. Screenshots land in `walk-out/<size>/`. Look at them.
+- G1 checks every question kind: the answer is right, the picture matches, options are sound; the add-or-take-away slips ("mixed", "added", too big) are named; every "Add or take away?" round has one right choice, true sums and a reason on each wrong choice; its planted faults must be caught.
+- The walk plays every lesson and quiz, and "Add or take away?" right and wrong, as a pupil at four screen sizes, checks nothing scrolls or spills, word limits, help steps, score saving, the offline case and Dad's page; its planted faults must be caught. Screenshots land in `walk-out/<size>/`. Look at them.
 - G2 runs `backend/Code.gs` against stand-in Google services: setup, keys, saving once only, formula-safe text, Dad-only detail, the wrong-key lock. Run it whenever `Code.gs` changes.
 
 ## Deploy

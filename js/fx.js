@@ -79,6 +79,7 @@ window.FX = (function () {
   const TUNES = { tap: [[740, 0, .07]], place: [[988, 0, .1]], right: [[784, 0, .22], [1047, .09, .26], [1319, .18, .42]], wrong: [[392, 0, .2], [330, .13, .32]],
     hit: [[1047, 0, .16], [1568, .08, .34]], win: [[784, 0, .2], [988, .13, .2], [1175, .26, .2], [1568, .39, .7]] };
   function chime(name) {
+    if (name === 'wrong') settle();   // no party paper falling over a "not that one"
     if (muted) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume();
@@ -94,5 +95,5 @@ window.FX = (function () {
 
   window.addEventListener('resize', size); document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
   size(); wake();
-  return { burst, trail, at, confetti, settle, pen: setPen, chime, mute, reduce };
+  return { burst, trail, at, confetti, settle, paper: () => parts.filter(p => p.paper).length, pen: setPen, chime, mute, reduce };
 })();

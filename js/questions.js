@@ -37,6 +37,10 @@
     inside: 'That is the angle inside. x is outside, on the straight line.',
     otherPar: 'x is the other size here. The two sizes make 180°.',
     twinPar: 'x is the same size as the angle you were given.',
+    mixed: 'You took one away, then added the other. Take both away.',
+    added180: 'You added them. Now take that total away from 180°.',
+    added360: 'You added them. Now take that total away from 360°.',
+    subtract360: 'Add the two angles first. Then take the total from 360°.',
   };
   function slips(answer, list) {
     const out = [], seen = {};
@@ -75,14 +79,14 @@
       const x = 180 - a - b;
       return { topic: 'line', total: 180, answer: x, spec: fan(r, shuffle(r, [K(a), K(b), X(x)]), true), ring: { total: 180, pieces: [a, b], n: 1 },
         help: ['A straight line makes 180°.', `Add ${a} and ${b}.`, 'Take that total from 180.'], steps: [`${a} + ${b} = ${a + b}`, `180 − ${a + b} = ${x}°`],
-        slips: slips(x, [[180 - a, 'one', SAY.one], [180 - b, 'one', SAY.one], [360 - a - b, 'full', SAY.fullLine]]), desc: `Straight line: ${a}°, ${b}°, x` };
+        slips: slips(x, [[180 - a, 'one', SAY.one], [180 - b, 'one', SAY.one], [360 - a - b, 'full', SAY.fullLine], [180 - a + b, 'mixed', SAY.mixed], [180 - b + a, 'mixed', SAY.mixed], [a + b, 'added', SAY.added180], [Math.abs(a - b), 'subtract', SAY.subtract]]), desc: `Straight line: ${a}°, ${b}°, x` };
     },
     lineSq(r) {
       const a = until(() => ang(r, 25, 65), a => a !== 45);
       const x = 90 - a;
       return { topic: 'line', total: 180, answer: x, spec: fan(r, pick(r, [[K(a), X(x), SQ], [SQ, K(a), X(x)], [X(x), K(a), SQ], [SQ, X(x), K(a)]]), true), ring: { total: 180, pieces: [90, a], n: 1 },
         help: ['A straight line makes 180°.', 'The little square is 90°.', `Take 90 and ${a} from 180.`], steps: [`90 + ${a} = ${90 + a}`, `180 − ${90 + a} = ${x}°`],
-        slips: slips(x, [[180 - a, 'square', SAY.square], [270 - a, 'full', SAY.fullLine]]), desc: `Straight line: right angle, ${a}°, x` };
+        slips: slips(x, [[180 - a, 'square', SAY.square], [270 - a, 'full', SAY.fullLine], [90 + a, 'added', SAY.added180]]), desc: `Straight line: right angle, ${a}°, x` };
     },
     lineEq(r) {
       const a = until(() => 2 * int(r, 15, 65), a => a !== 60 && a !== 90);
@@ -103,14 +107,14 @@
       const x = 360 - a - b;
       return { topic: 'point', total: 360, answer: x, spec: fan(r, shuffle(r, [K(a), K(b), X(x)]), false), ring: { total: 360, pieces: [a, b], n: 1 },
         help: ['All the way round makes 360°.', `Add ${a} and ${b}.`, 'Take that total from 360.'], steps: [`${a} + ${b} = ${a + b}`, `360 − ${a + b} = ${x}°`],
-        slips: slips(x, [[180 - a - b, 'half', SAY.half], [180 - a, 'half', SAY.half], [180 - b, 'half', SAY.half], [360 - a, 'one', SAY.one], [360 - b, 'one', SAY.one]]), desc: `Around a point: ${a}°, ${b}°, x` };
+        slips: slips(x, [[180 - a - b, 'half', SAY.half], [180 - a, 'half', SAY.half], [180 - b, 'half', SAY.half], [360 - a, 'one', SAY.one], [360 - b, 'one', SAY.one], [360 - a + b, 'mixed', SAY.mixed], [360 - b + a, 'mixed', SAY.mixed], [a + b, 'added', SAY.added360], [Math.abs(a - b), 'subtract', SAY.subtract360]]), desc: `Around a point: ${a}°, ${b}°, x` };
     },
     ptSq(r) {
       const a = until(() => ang(r, 95, 240), a => 270 - a >= 30 && 270 - a !== 90 && a !== 180 && 270 - a !== a);
       const x = 270 - a;
       return { topic: 'point', total: 360, answer: x, spec: fan(r, pick(r, [[K(a), SQ, X(x)], [K(a), X(x), SQ], [SQ, K(a), X(x)]]), false), ring: { total: 360, pieces: [a, 90], n: 1 },
         help: ['All the way round makes 360°.', 'The little square is 90°.', `Take ${a} and 90 from 360.`], steps: [`${a} + 90 = ${a + 90}`, `360 − ${a + 90} = ${x}°`],
-        slips: slips(x, [[180 - a, 'half', SAY.half], [360 - a, 'square', SAY.square], [a - 180, 'half', SAY.half], [90 - (a - 180), 'half', SAY.half]]), desc: `Around a point: ${a}°, right angle, x` };
+        slips: slips(x, [[180 - a, 'half', SAY.half], [360 - a, 'square', SAY.square], [a - 180, 'half', SAY.half], [90 - (a - 180), 'half', SAY.half], [450 - a, 'mixed', SAY.mixed], [a + 90, 'added', SAY.added360]]), desc: `Around a point: ${a}°, right angle, x` };
     },
     ptEq(r) {
       const [a, b] = until(() => [ang(r, 60, 160), ang(r, 60, 160)], ([a, b]) => { const x = (360 - a - b) / 2; return a !== b && Number.isInteger(x) && x >= 30 && x !== 90 && x !== a && x !== b && a !== 90 && b !== 90; });
@@ -125,7 +129,7 @@
       [[a, 'k0'], [b, 'k1'], [x, 'x']].forEach(([v, c], i) => { angles[order[i]] = v; corners[order[i]] = { label: c === 'x' ? 'x' : v + '°', cls: c, key: c === 'x' ? 'x' : 'k' }; });
       return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles, corners, rot: pick(r, [0, 0, 180, 12, -12]), flip: r() < 0.5 }, ring: { total: 180, pieces: [a, b], n: 1 },
         help: ['A triangle’s angles make 180°.', `Add ${a} and ${b}.`, 'Take that total from 180.'], steps: [`${a} + ${b} = ${a + b}`, `180 − ${a + b} = ${x}°`],
-        slips: slips(x, [[Math.abs(a - b), 'subtract', SAY.subtract], [360 - a - b, 'full', SAY.fullTri], [180 - a, 'one', SAY.one], [180 - b, 'one', SAY.one]]), desc: `Triangle: ${a}°, ${b}°, x` };
+        slips: slips(x, [[Math.abs(a - b), 'subtract', SAY.subtract], [360 - a - b, 'full', SAY.fullTri], [180 - a, 'one', SAY.one], [180 - b, 'one', SAY.one], [180 - a + b, 'mixed', SAY.mixed], [180 - b + a, 'mixed', SAY.mixed], [a + b, 'added', SAY.added180]]), desc: `Triangle: ${a}°, ${b}°, x` };
     },
     triSq(r) {
       const a = until(() => ang(r, 28, 62), a => a !== 45);
@@ -133,7 +137,7 @@
       [[90, 'sq'], [a, 'k0'], [x, 'x']].forEach(([v, c], i) => { angles[order[i]] = v; corners[order[i]] = c === 'sq' ? { square: true, cls: 'sq', key: 'k' } : { label: c === 'x' ? 'x' : v + '°', cls: c, key: c === 'x' ? 'x' : 'k' }; });
       return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles, corners, rot: pick(r, [0, 0, 180, 90]), flip: r() < 0.5 }, ring: { total: 180, pieces: [90, a], n: 1 },
         help: ['A triangle’s angles make 180°.', 'The little square is 90°.', `Take 90 and ${a} from 180.`], steps: [`90 + ${a} = ${90 + a}`, `180 − ${90 + a} = ${x}°`],
-        slips: slips(x, [[180 - a, 'square', SAY.square], [270 - a, 'full', SAY.fullTri]]), desc: `Right-angled triangle: ${a}°, x` };
+        slips: slips(x, [[180 - a, 'square', SAY.square], [270 - a, 'full', SAY.fullTri], [90 + a, 'added', SAY.added180]]), desc: `Right-angled triangle: ${a}°, x` };
     },
     isoApex(r) {
       const a = until(() => 2 * int(r, 16, 60), a => a !== 60 && a !== 90);
@@ -149,7 +153,7 @@
       corners[at] = { label: a + '°', cls: 'k0', key: 'k' };
       return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles: [a, a, x], corners, equal: [[0, 2], [1, 2]], rot: pick(r, [0, 0, 180]), flip: false }, ring: { total: 180, pieces: [a, a], n: 1 },
         help: ['Two of the angles are equal.', `The matching angle is ${a}° too.`, `Take ${a} and ${a} from 180.`], steps: [`${a} + ${a} = ${2 * a}`, `180 − ${2 * a} = ${x}°`],
-        slips: slips(x, [[180 - a, 'twin', SAY.twinIso], [a, 'same', SAY.sameIso], [(180 - a) / 2, 'twin', SAY.twinIso]]), desc: `Isosceles triangle: one equal angle ${a}°, x between the equal sides` };
+        slips: slips(x, [[180 - a, 'twin', SAY.twinIso], [a, 'same', SAY.sameIso], [(180 - a) / 2, 'twin', SAY.twinIso], [2 * a, 'added', SAY.added180]]), desc: `Isosceles triangle: one equal angle ${a}°, x between the equal sides` };
     },
     triExt(r) {
       const [a, c] = until(() => [ang(r, 30, 95), ang(r, 30, 95)], ([a, c]) => { const b = 180 - a - c; return a !== c && b >= 32 && b !== 90 && a + c !== 90 && b !== a && b !== c; });
@@ -198,15 +202,44 @@
     if (given === q.answer) return { right: true, slip: '', say: '' };
     const s = q.slips.find(s => s.value === given);
     if (s) return { right: false, slip: s.tag, say: s.say };
+    if (q.total && given >= q.total) return { right: false, slip: 'toobig', say: `x is only part of the ${q.total}°. It must be smaller.` };
     const diff = Math.abs(given - q.answer);
     if (diff <= 10 || (diff % 10 === 0 && diff <= 100)) return { right: false, slip: 'near', say: 'So close. Check your adding and taking away.' };
     return { right: false, slip: '', say: 'Not this time. Here is the working.' };
+  }
+
+  /* ---- "Add or take away?": the decisions behind a question. She decides; the sums are done for her.
+     mode 'steps' = one decision at a time; mode 'working' = pick the right working out of three.
+     Right-angle kinds on a line or in a triangle are left out: there, taking one from the other really finds x. ---- */
+  const PLAN_KINDS = { steps: ['line2', 'line3', 'pt1', 'pt2', 'ptSq', 'tri2'], working: ['line3', 'pt2', 'ptSq', 'tri2'] };
+  function plan(q, mode, force) {
+    if (!force && !(PLAN_KINDS[mode] || []).includes(q.kind)) throw new Error('no ' + mode + ' plan for ' + q.kind);
+    const r = rng(q.seed * 48271 + mode.length), W = q.ring.total, p = q.ring.pieces, S = p.reduce((a, b) => a + b, 0), x = q.answer;
+    const name = v => v + '°' + (v === 90 && /Sq$/.test(q.kind) ? ' (the square)' : '');
+    const sum = p.join(' + ') + ' = ' + S, whole = q.help[0];
+    if (mode === 'working') {
+      const [u, v] = shuffle(r, p), hi = Math.max(p[0], p[1]), lo = Math.min(p[0], p[1]);
+      return { mode, steps: [{ job: 'Which working finds x?',
+        options: shuffle(r, [
+          { lines: [sum, `${W} − ${S} = x`], right: true },
+          { lines: [`${W} − ${u} = ${W - u}`, `${W - u} + ${v} = x`], tag: 'plan-mixed', why: `The ${v}° is part of the ${W}° too. Take it away as well.` },
+          { lines: [`${hi} − ${lo} = ${hi - lo}`, `${W} − ${hi - lo} = x`], tag: 'plan-gap', why: `${hi} − ${lo} is only the gap between them. Add them instead.` },
+        ]), work: [sum, `${W} − ${S} = ${x}°`], help: [whole, 'Add the angles you know first.', 'Then take that total away.'] }] };
+    }
+    const add = { job: `You know ${name(p[0])} and ${name(p[1] || 0)}. What do you do with them?`,
+      options: shuffle(r, [{ label: 'Add them', right: true }, { label: 'Take one from the other', tag: 'plan-gap', why: 'That finds the gap between them. You need them together.' }]),
+      work: [sum], help: [`Both angles are part of the ${W}°.`, 'Find how much they fill together. Add them.'] };
+    const take = { job: p.length === 2 ? `They use up ${S}° of the ${W}°. How do you find x?` : `${S}° is part of the ${W}°. How do you find x?`,
+      options: shuffle(r, [{ label: `Take ${S} from ${W}`, right: true }, { label: `Add ${S} to ${W}`, tag: 'plan-add', why: `That makes ${W + S}°. Too big: x is only part of the ${W}°.` }]),
+      work: [`${W} − ${S} = ${x}°`], help: [whole, `${S}° is used up. x is what is left.`, `Take ${S} away from ${W}.`] };
+    return { mode, steps: p.length === 2 ? [add, take] : [take] };
   }
 
   const LESSONS = [
     { id: '1', topic: 'line', title: 'Angles on a straight line', sum: 'They always make 180°', tryKinds: ['line2', 'line3', 'lineEq'], quiz: [['line2'], ['line3'], ['lineSq'], ['lineEq'], ['line3', 'lineSq', 'lineEq']] },
     { id: '2', topic: 'point', title: 'Angles around a point', sum: 'They always make 360°', tryKinds: ['pt2', 'ptSq', 'ptEq'], quiz: [['pt1'], ['ptSq'], ['lineSq', 'line3'], ['ptEq'], ['pt2', 'ptSq']] },
     { id: '3', topic: 'tri', title: 'Angles in a triangle', sum: 'They always make 180°', tryKinds: ['tri2', 'isoApex', 'triExt'], quiz: [['tri2'], ['triSq'], ['isoApex'], ['isoBase'], ['triExt']] },
+    { id: 'plan', topic: 'plan', title: 'Add or take away?', sum: 'Know which one to do', tryKinds: [], plan: ['steps', 'steps', 'steps', 'working', 'steps', 'working'], quiz: [['line3'], ['tri2'], ['line2', 'pt1'], ['pt2'], ['ptSq'], ['line3', 'tri2']] },
     { id: '4', topic: 'par', title: 'Angles and parallel lines', sum: 'Only two sizes of angle', tryKinds: ['parOne', 'parTwo', 'parTwo'], quiz: [['parOne'], ['parOne'], ['parTwo'], ['parTwo'], ['parTwo']] },
     { id: 'mixed', topic: 'mixed', title: 'Mixed quiz', sum: 'A bit of everything', tryKinds: [], quiz: [['lineSq'], ['lineEq'], ['line3'], ['ptSq'], ['ptEq'], ['pt2', 'pt1'], ['tri2'], ['isoApex', 'isoBase'], ['triExt', 'triSq'], ['parOne'], ['parTwo'], ['parTwo']] },
   ];
@@ -217,7 +250,7 @@
     const L = lesson(lessonId), r = rng(seed * 2654435761 + 17);
     let kinds = mode === 'try' ? L.tryKinds.slice() : L.quiz.map(opts => pick(r, opts));
     if (mode === 'quiz' && L.id === 'mixed') kinds = shuffle(r, kinds);
-    else if (mode === 'quiz') kinds = [kinds[0]].concat(shuffle(r, kinds.slice(1)));
+    else if (mode === 'quiz' && !L.plan) kinds = [kinds[0]].concat(shuffle(r, kinds.slice(1)));
     const out = [], used = {};
     kinds.forEach((k, i) => {
       let q;
@@ -228,5 +261,5 @@
   }
   function stars(score, total) { const p = score / total; return p >= 1 ? 3 : p >= 0.8 ? 2 : p >= 0.6 ? 1 : 0; }
 
-  return { make, judge, set, stars, lesson, LESSONS, KINDS: Object.keys(MAKE), rng };
+  return { make, judge, set, stars, lesson, plan, PLAN_KINDS, LESSONS, KINDS: Object.keys(MAKE), rng };
 });

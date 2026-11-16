@@ -34,7 +34,7 @@
       <div class="soon"><div class="big" aria-hidden="true">${s[2]}</div><h1>${s[1]} is on its way.</h1><p>Dad is getting it ready for you.</p><a class="btn" href="#/">Back to subjects</a></div></section>`);
     const got = Q.LESSONS.reduce((a, l) => a + Store.stars(DONE + l.id), 0);
     show(`<section class="screen"><div class="bar"><a class="back" href="#/">Subjects</a></div><h1 class="title">Maths</h1><p class="lead">Pick a topic.</p>
-      <ul class="cards"><li class="rise"><a class="card" href="${BASE}"><span class="num" aria-hidden="true">📐</span><span class="tx"><span class="t">Angles</span><span class="s">4 lessons and a mixed quiz</span></span>
+      <ul class="cards"><li class="rise"><a class="card" href="${BASE}"><span class="num" aria-hidden="true">📐</span><span class="tx"><span class="t">Angles</span><span class="s">5 lessons and a mixed quiz</span></span>
       <span class="stars" role="img" aria-label="${got} of ${Q.LESSONS.length * 3} stars"><b>★</b> ${got} of ${Q.LESSONS.length * 3}</span></a></li></ul></section>`);
   }
 
@@ -43,7 +43,7 @@
     const cards = Q.LESSONS.map((l, i) => {
       const d = s => Store.isDone(DONE + l.id + '.' + s);
       const stage = !l.tryKinds.length ? 'quiz' : !d('see') ? 'see' : !d('try') ? 'try' : 'quiz';
-      return `<li class="rise" style="--i:${i}"><a class="card" href="${BASE}/${l.id}/${stage}">${i === start ? '<span class="here">Start here</span>' : ''}<span class="num" aria-hidden="true">${l.id === 'mixed' ? '★' : l.id}</span>
+      return `<li class="rise" style="--i:${i}"><a class="card" href="${BASE}/${l.id}/${stage}">${i === start ? '<span class="here">Start here</span>' : ''}<span class="num" aria-hidden="true">${l.id === 'mixed' ? '★' : l.id === 'plan' ? '±' : l.id}</span>
         <span class="tx"><span class="t">${l.title}</span><span class="s">${l.sum}</span></span>${starRow(Store.stars(DONE + l.id))}</a></li>`;
     }).join('');
     show(`<section class="screen"><div class="bar"><a class="back" href="#/s/maths">Maths</a><h1>Angles</h1><span class="pad44"></span></div><p class="lead">Pick a lesson.</p><ul class="cards two">${cards}</ul></section>`);
@@ -66,7 +66,7 @@
     const host = document.getElementById('stage');
     const ctx = { base, next: base + (stage === 'see' ? '/try' : '/quiz'),
       done(s) { Store.markDone(DONE + L.id + '.' + (s || stage)); const el = document.getElementById('strip'); if (el) el.innerHTML = strip(); } };
-    stop = stage === 'see' ? Lessons.see(host, L, ctx) : stage === 'try' ? Player.tryIt(host, L, ctx) : Player.quiz(host, L, ctx);
+    stop = stage === 'see' ? Lessons.see(host, L, ctx) : stage === 'try' ? Player.tryIt(host, L, ctx) : L.plan ? Player.plan(host, L, ctx) : Player.quiz(host, L, ctx);
   }
 
   function keyScreen() {

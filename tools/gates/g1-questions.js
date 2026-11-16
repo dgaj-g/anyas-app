@@ -17,8 +17,8 @@ function rectHitsSeg(l, s, shrink) {
   return true;
 }
 
-function check(q) {
-  const f = [], par = q.topic === 'par', s = q.spec;
+function check(q, judge) {
+  const f = [], par = q.topic === 'par', s = q.spec, J = judge || Q.judge;
   if (!Number.isInteger(q.answer) || q.answer < 10 || q.answer > 340) f.push('answer not a sensible whole number: ' + q.answer);
   if (!par && [90, 180, 360].includes(q.answer)) f.push('answer is a give-away number');
   let L;
@@ -92,7 +92,55 @@ function check(q) {
   else if (!par) f.push('no ring');
   // first step of "Try it": exactly one right option
   if (q.choice.options.filter(o => o.right).length !== 1) f.push('choice has no single right option');
-  if (Q.judge(q, q.answer).right !== true || Q.judge(q, q.answer + 1).right !== false) f.push('judge is wrong');
+  if (J(q, q.answer).right !== true || J(q, q.answer + 1).right !== false) f.push('judge is wrong');
+  // add or take away: with two known angles, her two wrong moves each get their own message
+  if (q.ring && q.ring.n === 1 && q.ring.pieces.length === 2) {
+    const [p0, p1] = q.ring.pieces, W = q.ring.total, has = v => q.slips.some(sl => sl.value === v);
+    const real = v => Number.isInteger(v) && v > 0 && v <= 360 && v !== q.answer;
+    if (p0 !== p1) [W - p0 + p1, W - p1 + p0].forEach(v => { if (real(v) && !has(v)) f.push('no slip for taking one away then adding the other'); });
+    if (real(p0 + p1) && !has(p0 + p1)) f.push('no slip for adding and stopping');
+  }
+  // an answer bigger than the whole is told so
+  if (q.total) { let big = q.total + 7; while (q.slips.some(sl => sl.value === big)) big++; if (J(q, big).slip !== 'toobig') f.push('an answer bigger than the whole is not told so'); }
+  return f;
+}
+
+/* "Add or take away?": the decisions behind one question. One right option a step, true sums,
+   a reason on every wrong option, and no wrong option that would really find x. */
+function planCheck(q, pl) {
+  const f = [], calc = line => { const m = String(line).match(/^(\d+) ([+−]) (\d+) = (\d+|x)°?$/); return m ? { v: m[2] === '+' ? +m[1] + +m[3] : +m[1] - +m[3], shown: m[4] } : null; };
+  const p = q.ring.pieces, W = q.ring.total;
+  if (pl.steps.length < 1 || pl.steps.length > 2) f.push('plan has ' + pl.steps.length + ' steps');
+  pl.steps.forEach(st => {
+    if (!st.job || words(st.job) > 14) f.push('plan job over 14 words');
+    if (st.options.length < 2 || st.options.filter(o => o.right).length !== 1) f.push('plan step has no single right option');
+    const names = st.options.map(o => o.label || o.lines.join('|'));
+    if (new Set(names).size !== names.length) f.push('two plan options look the same');
+    st.options.forEach(o => {
+      if (!o.right && (!o.why || words(o.why) > 14 || !o.tag)) f.push('wrong option without a short reason');
+      (o.lines || []).forEach((line, i) => {
+        const c = calc(line); if (!c) { f.push('option line is not a sum: ' + line); return; }
+        const end = i === o.lines.length - 1;
+        if (c.shown !== 'x' && c.v !== +c.shown) f.push('false sum in an option: ' + line);
+        if (end && c.shown !== 'x') f.push('option gives its own answer');
+        if (end && (c.v === q.answer) !== !!o.right) f.push('option marked wrongly');
+        if (!end && c.v === q.answer) f.push('an option shows the answer');
+      });
+      const t = (o.label || '').match(/^Take (\d+) from (\d+)$/), a = (o.label || '').match(/^Add (\d+) to (\d+)$/);
+      if (t && ((+t[2] - +t[1] === q.answer) !== !!o.right)) f.push('option marked wrongly');
+      if (a) { const m = (o.why || '').match(/makes (\d+)°/); if (o.right || !m || +m[1] !== +a[1] + +a[2]) f.push('reason gives a false total'); }
+      if (o.label === 'Take one from the other' && (o.right || p.length !== 2 || Math.abs(p[0] - p[1]) === q.answer)) f.push('a wrong option really finds x');
+      if (o.label === 'Add them' && (!o.right || p.length !== 2)) f.push('option marked wrongly');
+      if (o.why && new RegExp('(^|\\D)' + q.answer + '(\\D|$)').test(o.why)) f.push('a reason gives the answer');
+    });
+    if (!st.work.length) f.push('plan step shows no working');
+    st.work.forEach(line => { const c = calc(line); if (!c || c.shown === 'x' || c.v !== +c.shown) f.push('false plan working: ' + line); });
+    if (st.help.length < 1 || st.help.length > 3) f.push('plan help has ' + st.help.length + ' steps');
+    st.help.forEach(h => { if (words(h) > 10) f.push('plan help step over 10 words'); if (new RegExp('(^|\\D)' + q.answer + '(\\D|$)').test(h)) f.push('plan help gives the answer'); });
+  });
+  const last = pl.steps[pl.steps.length - 1], end = last && last.work[last.work.length - 1];
+  if (!end || !new RegExp('^' + W + ' − ' + p.reduce((a, b) => a + b, 0) + ' = ' + q.answer + '°$').test(end)) f.push('plan working does not end at the answer');
+  if (pl.steps.length === 2) p.forEach(v => { if (!pl.steps[0].job.includes(v + '°')) f.push('first job does not name the known angles'); });
   return f;
 }
 
@@ -110,6 +158,35 @@ for (const kind of Q.KINDS) {
   Object.entries(faults).slice(0, 6).forEach(([k, c]) => console.log(`       ${c} × ${k}`));
   if (n) bad++;
   if (a.length < 12) { console.log('       too few different answers'); bad++; }
+}
+// across each kind, the new messages really show up (a clash with an older slip is allowed, but rarely)
+for (const [tag, kinds] of [['mixed', ['line3', 'tri2', 'pt2', 'ptSq']], ['added', ['line3', 'tri2', 'pt2', 'lineSq', 'triSq', 'ptSq', 'isoBase']]]) for (const kind of kinds) {
+  let n = 0; for (let seed = 1; seed <= SEEDS; seed++) if (Q.make(kind, seed).slips.some(sl => sl.tag === tag)) n++;
+  if (n < SEEDS * 0.9) { console.log(`FAIL ${kind}: only ${n}/${SEEDS} questions carry the "${tag}" message`); bad++; }
+}
+// her own slip, as she made it: a straight line with 88° and 30°, answered 122
+{
+  let found = 0;
+  for (let seed = 1; seed <= 3000 && !found; seed++) { const t = Q.make('line3', seed), [a, b] = t.ring.pieces; const j = Q.judge(t, 180 - a + b); if (j.slip === 'mixed' && /took one away/.test(j.say)) found = 1; }
+  if (!found) { console.log('FAIL her own slip (took one away, added the other) gets no message'); bad++; }
+}
+// every decision plan, every kind it is used for
+for (const mode of Object.keys(Q.PLAN_KINDS)) for (const kind of Q.PLAN_KINDS[mode]) {
+  const faults = {}; let n = 0;
+  for (let seed = 1; seed <= SEEDS; seed++) {
+    let f; try { const q = Q.make(kind, seed); f = planCheck(q, Q.plan(q, mode)); } catch (e) { f = ['plan threw: ' + e.message]; }
+    if (f.length) n++;
+    f.forEach(x => { const k = x.replace(/\d+(\.\d+)?/g, 'N'); faults[k] = (faults[k] || 0) + 1; });
+  }
+  console.log(`${n ? 'FAIL' : 'ok  '} plan ${mode.padEnd(7)} ${kind.padEnd(6)} ${SEEDS - n}/${SEEDS}`);
+  Object.entries(faults).slice(0, 6).forEach(([k, c]) => console.log(`       ${c} × ${k}`));
+  if (n) bad++;
+}
+// the game's rounds: each one is a kind its plan is checked for
+{
+  const L = Q.lesson('plan');
+  if (!L || !L.plan || L.plan.length !== L.quiz.length) { console.log('FAIL the plan lesson has no round list'); bad++; }
+  else L.quiz.forEach((opts, i) => opts.forEach(k => { if (!(Q.PLAN_KINDS[L.plan[i]] || []).includes(k)) { console.log(`FAIL round ${i + 1}: ${k} has no checked ${L.plan[i]} plan`); bad++; } }));
 }
 // every sitting builds, with the right count and no repeated question
 for (const L of Q.LESSONS) for (const mode of ['try', 'quiz']) for (let seed = 1; seed <= 50; seed++) {
@@ -134,7 +211,32 @@ const controls = [
   ['ring that does not close', 'isoApex', q => { q.ring.n = 1; }],
   ['x drawn on the given angle', 'parTwo', q => { q.spec.arcs[1].cross = q.spec.arcs[0].cross; q.spec.arcs[1].q = q.spec.arcs[0].q; }],
   ['two right options', 'parOne', q => { q.choice.options.forEach(o => { o.right = true; }); }],
+  ['no message for take-one-add-the-other', 'line3', q => { q.slips = q.slips.filter(sl => sl.tag !== 'mixed'); }],
+  ['no message for adding and stopping', 'tri2', q => { q.slips = q.slips.filter(sl => sl.tag !== 'added'); }],
 ];
+const noBig = (q, given) => { const j = Q.judge(q, given); return j.slip === 'toobig' ? { right: false, slip: '', say: '' } : j; };
+{
+  const caught = check(clone(Q.make('line2', 7)), noBig).length > 0;
+  console.log(`${caught ? 'ok   caught' : 'FAIL MISSED'}  control: a checker that lets a too-big answer pass`);
+  if (!caught) bad++;
+}
+const planControls = [
+  ['plan: two right options', 'steps', 'line3', (q, pl) => { pl.steps[0].options.forEach(o => { o.right = true; }); }],
+  ['plan: false sum in an option', 'working', 'tri2', (q, pl) => { const o = pl.steps[0].options.find(o => !o.right); o.lines[0] = o.lines[0].replace(/= \d+$/, '= 999'); }],
+  ['plan: wrong option with no reason', 'steps', 'pt2', (q, pl) => { delete pl.steps[1].options.find(o => !o.right).why; }],
+  ['plan: job of 15 words', 'steps', 'line2', (q, pl) => { pl.steps[0].job = 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen'; }],
+  ['plan: working ends somewhere else', 'steps', 'ptSq', (q, pl) => { const w = pl.steps[1].work; w[w.length - 1] = w[w.length - 1].replace(/= \d+°$/, '= ' + (q.answer + 2) + '°'); }],
+  ['plan: wrong working marked right', 'working', 'line3', (q, pl) => { const o = pl.steps[0].options; o.forEach(x => { x.right = !x.right && x === o.find(y => !y.right); }); }],
+  ['plan: a "wrong" move that really finds x', 'steps', 'lineSq', null],
+  ['plan: help that gives the answer', 'steps', 'tri2', (q, pl) => { pl.steps[0].help[0] = 'x is ' + q.answer + '.'; }],
+  ['plan: reason with a false total', 'steps', 'line3', (q, pl) => { const o = pl.steps[1].options.find(o => !o.right); o.why = o.why.replace(/makes \d+°/, 'makes 999°'); }],
+];
+for (const [name, mode, kind, plant] of planControls) {
+  const q = Q.make(kind, 7); let caught;
+  try { const pl = clone(Q.plan(q, mode, true)); if (plant) plant(q, pl); caught = planCheck(q, pl).length > 0; } catch (e) { caught = true; }
+  console.log(`${caught ? 'ok   caught' : 'FAIL MISSED'}  control: ${name}`);
+  if (!caught) bad++;
+}
 for (const [name, kind, plant] of controls) {
   const q = clone(Q.make(kind, 7)); plant(q);
   const caught = check(q).length > 0;
