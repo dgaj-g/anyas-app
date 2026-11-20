@@ -1,6 +1,8 @@
 /* The angle questions. Every question is made from a seed, so a quiz can be rebuilt exactly
    (the walker in tools/drives does this) and no two quizzes are the same.
-   make(kind, seed) -> { kind, topic, spec, answer, total, ring, choice, help, steps, slips, desc }
+   make(kind, seed) -> { kind, topic, spec, answer, total, ring, choice, choiceHelp, help, helpSpec, steps, slips, desc }
+   help = [the plain fact, { say, sums }, ...]: every sum is worked with her numbers except the last, which ends "= ?".
+   helpSpec (some kinds) = the picture with one more thing marked, shown while the help is open.
    judge(q, given)  -> { right, slip, say }
    Checked by tools/gates/g1-questions.js. */
 (function (root, factory) {
@@ -51,6 +53,15 @@
     return out;
   }
   const CHOICE_TOTAL = t => ({ ask: 'What do these angles add up to?', options: [{ label: '180°', right: t === 180 }, { label: '360°', right: t === 360 }] });
+  const H = (say, ...sums) => ({ say, sums });   // one help step: a short line, then the sums it shows
+  const REST = t => `x is the rest of the ${t}°.`, ADD2 = 'Add the two angles you know.', SQUARE = 'The little square means 90°. Add the two angles.', SHARE = 'The two x’s share what is left.';
+  const CHOICE_HELP = {     // "Try it", first step: how to tell which total it is
+    line: ['These angles sit on a straight line.', 'A straight line makes 180°.'],
+    point: ['These angles go all the way round a point.', 'All the way round makes 360°.'],
+    tri: ['These angles are inside a triangle.', 'A triangle’s angles make 180°.'],
+    ext: ['Look at the three angles inside the triangle.', 'A triangle’s angles make 180°.'],
+    par: ['There are only two sizes of angle here.', 'Same colour means the same size.', 'Small angles look sharp. Big angles look wide.'],
+  };
 
   /* ---- pictures with rays from one point ---- */
   function fan(r, parts, line) {
@@ -71,56 +82,56 @@
       const a = until(() => ang(r, 25, 155), a => a !== 90);
       const x = 180 - a;
       return { topic: 'line', total: 180, answer: x, spec: fan(r, shuffle(r, [K(a), X(x)]), true), ring: { total: 180, pieces: [a], n: 1 },
-        help: ['A straight line makes 180°.', `Take ${a} away from 180.`], steps: [`180 − ${a} = ${x}°`],
+        help: ['A straight line makes 180°.', H(REST(180), `180 − ${a} = ?`)], steps: [`180 − ${a} = ${x}°`],
         slips: slips(x, [[360 - a, 'full', SAY.fullLine], [a, 'same', SAY.sameLine]]), desc: `Straight line: ${a}°, x` };
     },
     line3(r) {
       const [a, b] = until(() => [ang(r, 25, 110), ang(r, 25, 110)], ([a, b]) => a !== b && a !== 90 && b !== 90 && 180 - a - b >= 25 && 180 - a - b !== 90 && 180 - a - b !== a && 180 - a - b !== b);
       const x = 180 - a - b;
       return { topic: 'line', total: 180, answer: x, spec: fan(r, shuffle(r, [K(a), K(b), X(x)]), true), ring: { total: 180, pieces: [a, b], n: 1 },
-        help: ['A straight line makes 180°.', `Add ${a} and ${b}.`, 'Take that total from 180.'], steps: [`${a} + ${b} = ${a + b}`, `180 − ${a + b} = ${x}°`],
+        help: ['A straight line makes 180°.', H(ADD2, `${a} + ${b} = ${a + b}`), H(REST(180), `180 − ${a + b} = ?`)], steps: [`${a} + ${b} = ${a + b}`, `180 − ${a + b} = ${x}°`],
         slips: slips(x, [[180 - a, 'one', SAY.one], [180 - b, 'one', SAY.one], [360 - a - b, 'full', SAY.fullLine], [180 - a + b, 'mixed', SAY.mixed], [180 - b + a, 'mixed', SAY.mixed], [a + b, 'added', SAY.added180], [Math.abs(a - b), 'subtract', SAY.subtract]]), desc: `Straight line: ${a}°, ${b}°, x` };
     },
     lineSq(r) {
       const a = until(() => ang(r, 25, 65), a => a !== 45);
       const x = 90 - a;
       return { topic: 'line', total: 180, answer: x, spec: fan(r, pick(r, [[K(a), X(x), SQ], [SQ, K(a), X(x)], [X(x), K(a), SQ], [SQ, X(x), K(a)]]), true), ring: { total: 180, pieces: [90, a], n: 1 },
-        help: ['A straight line makes 180°.', 'The little square is 90°.', `Take 90 and ${a} from 180.`], steps: [`90 + ${a} = ${90 + a}`, `180 − ${90 + a} = ${x}°`],
+        help: ['A straight line makes 180°.', H(SQUARE, `90 + ${a} = ${90 + a}`), H(REST(180), `180 − ${90 + a} = ?`)], steps: [`90 + ${a} = ${90 + a}`, `180 − ${90 + a} = ${x}°`],
         slips: slips(x, [[180 - a, 'square', SAY.square], [270 - a, 'full', SAY.fullLine], [90 + a, 'added', SAY.added180]]), desc: `Straight line: right angle, ${a}°, x` };
     },
     lineEq(r) {
       const a = until(() => 2 * int(r, 15, 65), a => a !== 60 && a !== 90);
       const x = (180 - a) / 2;
       return { topic: 'line', total: 180, answer: x, spec: fan(r, pick(r, [[X(x), K(a), X(x)], [K(a), X(x), X(x)], [X(x), X(x), K(a)]]), true), ring: { total: 180, pieces: [a], n: 2 },
-        help: ['A straight line makes 180°.', `Take ${a} from 180.`, 'Share the rest between both x’s.'], steps: [`180 − ${a} = ${180 - a}`, `${180 - a} ÷ 2 = ${x}°`],
+        help: ['A straight line makes 180°.', H('Take away the angle you know.', `180 − ${a} = ${180 - a}`), H(SHARE, `${180 - a} ÷ 2 = ?`)], steps: [`180 − ${a} = ${180 - a}`, `${180 - a} ÷ 2 = ${x}°`],
         slips: slips(x, [[180 - a, 'share', SAY.share], [(360 - a) / 2, 'full', SAY.fullLine], [360 - a, 'full', SAY.fullLine]]), desc: `Straight line: ${a}°, x, x` };
     },
     pt1(r) {
       const a = until(() => r() < 0.6 ? ang(r, 190, 330) : ang(r, 95, 170), a => a !== 270 && a !== 180);
       const x = 360 - a;
       return { topic: 'point', total: 360, answer: x, spec: fan(r, [K(a), X(x)], false), ring: { total: 360, pieces: [a], n: 1 },
-        help: ['All the way round makes 360°.', `Take ${a} away from 360.`], steps: [`360 − ${a} = ${x}°`],
+        help: ['All the way round makes 360°.', H(REST(360), `360 − ${a} = ?`)], steps: [`360 − ${a} = ${x}°`],
         slips: slips(x, [[180 - a, 'half', SAY.half], [a - 180, 'half', SAY.half]]), desc: `Around a point: ${a}°, x` };
     },
     pt2(r) {
       const [a, b] = until(() => [ang(r, 60, 200), ang(r, 40, 150)], ([a, b]) => { const x = 360 - a - b; return a !== b && x >= 30 && x !== 90 && x !== 180 && x !== a && x !== b && a !== 90 && b !== 90 && a !== 180; });
       const x = 360 - a - b;
       return { topic: 'point', total: 360, answer: x, spec: fan(r, shuffle(r, [K(a), K(b), X(x)]), false), ring: { total: 360, pieces: [a, b], n: 1 },
-        help: ['All the way round makes 360°.', `Add ${a} and ${b}.`, 'Take that total from 360.'], steps: [`${a} + ${b} = ${a + b}`, `360 − ${a + b} = ${x}°`],
+        help: ['All the way round makes 360°.', H(ADD2, `${a} + ${b} = ${a + b}`), H(REST(360), `360 − ${a + b} = ?`)], steps: [`${a} + ${b} = ${a + b}`, `360 − ${a + b} = ${x}°`],
         slips: slips(x, [[180 - a - b, 'half', SAY.half], [180 - a, 'half', SAY.half], [180 - b, 'half', SAY.half], [360 - a, 'one', SAY.one], [360 - b, 'one', SAY.one], [360 - a + b, 'mixed', SAY.mixed], [360 - b + a, 'mixed', SAY.mixed], [a + b, 'added', SAY.added360], [Math.abs(a - b), 'subtract', SAY.subtract360]]), desc: `Around a point: ${a}°, ${b}°, x` };
     },
     ptSq(r) {
       const a = until(() => ang(r, 95, 240), a => 270 - a >= 30 && 270 - a !== 90 && a !== 180 && 270 - a !== a);
       const x = 270 - a;
       return { topic: 'point', total: 360, answer: x, spec: fan(r, pick(r, [[K(a), SQ, X(x)], [K(a), X(x), SQ], [SQ, K(a), X(x)]]), false), ring: { total: 360, pieces: [a, 90], n: 1 },
-        help: ['All the way round makes 360°.', 'The little square is 90°.', `Take ${a} and 90 from 360.`], steps: [`${a} + 90 = ${a + 90}`, `360 − ${a + 90} = ${x}°`],
+        help: ['All the way round makes 360°.', H(SQUARE, `${a} + 90 = ${a + 90}`), H(REST(360), `360 − ${a + 90} = ?`)], steps: [`${a} + 90 = ${a + 90}`, `360 − ${a + 90} = ${x}°`],
         slips: slips(x, [[180 - a, 'half', SAY.half], [360 - a, 'square', SAY.square], [a - 180, 'half', SAY.half], [90 - (a - 180), 'half', SAY.half], [450 - a, 'mixed', SAY.mixed], [a + 90, 'added', SAY.added360]]), desc: `Around a point: ${a}°, right angle, x` };
     },
     ptEq(r) {
       const [a, b] = until(() => [ang(r, 60, 160), ang(r, 60, 160)], ([a, b]) => { const x = (360 - a - b) / 2; return a !== b && Number.isInteger(x) && x >= 30 && x !== 90 && x !== a && x !== b && a !== 90 && b !== 90; });
       const x = (360 - a - b) / 2;
       return { topic: 'point', total: 360, answer: x, spec: fan(r, pick(r, [[K(a), X(x), K(b), X(x)], [K(a), K(b), X(x), X(x)], [K(a), X(x), X(x), K(b)]]), false), ring: { total: 360, pieces: [a, b], n: 2 },
-        help: ['All the way round makes 360°.', `Take ${a} and ${b} from 360.`, 'Share the rest between both x’s.'], steps: [`${a} + ${b} = ${a + b}`, `360 − ${a + b} = ${360 - a - b}`, `${360 - a - b} ÷ 2 = ${x}°`],
+        help: ['All the way round makes 360°.', H('Add the angles you know. Take that from 360.', `${a} + ${b} = ${a + b}`, `360 − ${a + b} = ${360 - a - b}`), H(SHARE, `${360 - a - b} ÷ 2 = ?`)], steps: [`${a} + ${b} = ${a + b}`, `360 − ${a + b} = ${360 - a - b}`, `${360 - a - b} ÷ 2 = ${x}°`],
         slips: slips(x, [[360 - a - b, 'share', SAY.share], [180 - a, 'half', SAY.half], [180 - b, 'half', SAY.half], [(180 - a - b) / 2, 'half', SAY.half]]), desc: `Around a point: ${a}°, ${b}°, x, x` };
     },
     tri2(r) {
@@ -128,7 +139,7 @@
       const x = 180 - a - b, order = shuffle(r, [0, 1, 2]), angles = [], corners = [];
       [[a, 'k0'], [b, 'k1'], [x, 'x']].forEach(([v, c], i) => { angles[order[i]] = v; corners[order[i]] = { label: c === 'x' ? 'x' : v + '°', cls: c, key: c === 'x' ? 'x' : 'k' }; });
       return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles, corners, rot: pick(r, [0, 0, 180, 12, -12]), flip: r() < 0.5 }, ring: { total: 180, pieces: [a, b], n: 1 },
-        help: ['A triangle’s angles make 180°.', `Add ${a} and ${b}.`, 'Take that total from 180.'], steps: [`${a} + ${b} = ${a + b}`, `180 − ${a + b} = ${x}°`],
+        help: ['A triangle’s angles make 180°.', H(ADD2, `${a} + ${b} = ${a + b}`), H(REST(180), `180 − ${a + b} = ?`)], steps: [`${a} + ${b} = ${a + b}`, `180 − ${a + b} = ${x}°`],
         slips: slips(x, [[Math.abs(a - b), 'subtract', SAY.subtract], [360 - a - b, 'full', SAY.fullTri], [180 - a, 'one', SAY.one], [180 - b, 'one', SAY.one], [180 - a + b, 'mixed', SAY.mixed], [180 - b + a, 'mixed', SAY.mixed], [a + b, 'added', SAY.added180]]), desc: `Triangle: ${a}°, ${b}°, x` };
     },
     triSq(r) {
@@ -136,31 +147,34 @@
       const x = 90 - a, order = shuffle(r, [0, 1, 2]), angles = [], corners = [];
       [[90, 'sq'], [a, 'k0'], [x, 'x']].forEach(([v, c], i) => { angles[order[i]] = v; corners[order[i]] = c === 'sq' ? { square: true, cls: 'sq', key: 'k' } : { label: c === 'x' ? 'x' : v + '°', cls: c, key: c === 'x' ? 'x' : 'k' }; });
       return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles, corners, rot: pick(r, [0, 0, 180, 90]), flip: r() < 0.5 }, ring: { total: 180, pieces: [90, a], n: 1 },
-        help: ['A triangle’s angles make 180°.', 'The little square is 90°.', `Take 90 and ${a} from 180.`], steps: [`90 + ${a} = ${90 + a}`, `180 − ${90 + a} = ${x}°`],
+        help: ['A triangle’s angles make 180°.', H(SQUARE, `90 + ${a} = ${90 + a}`), H(REST(180), `180 − ${90 + a} = ?`)], steps: [`90 + ${a} = ${90 + a}`, `180 − ${90 + a} = ${x}°`],
         slips: slips(x, [[180 - a, 'square', SAY.square], [270 - a, 'full', SAY.fullTri], [90 + a, 'added', SAY.added180]]), desc: `Right-angled triangle: ${a}°, x` };
     },
     isoApex(r) {
       const a = until(() => 2 * int(r, 16, 60), a => a !== 60 && a !== 90);
       const x = (180 - a) / 2, at = int(r, 0, 1), corners = [null, null, { label: a + '°', cls: 'k0', key: 'k' }];
       corners[at] = { label: 'x', cls: 'x', key: 'x' };
-      return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles: [x, x, a], corners, equal: [[0, 2], [1, 2]], rot: pick(r, [0, 0, 180]), flip: false }, ring: { total: 180, pieces: [a], n: 2 },
-        help: ['Two of the angles are equal.', `Take ${a} from 180.`, 'Halve what is left.'], steps: [`180 − ${a} = ${180 - a}`, `${180 - a} ÷ 2 = ${x}°`],
+      const spec = { type: 'tri', angles: [x, x, a], corners, equal: [[0, 2], [1, 2]], rot: pick(r, [0, 0, 180]), flip: false };
+      return { topic: 'tri', total: 180, answer: x, spec, helpSpec: Object.assign({}, spec, { corners: corners.map(c => c || { label: 'x', cls: 'x', key: 'x' }) }), ring: { total: 180, pieces: [a], n: 2 },
+        help: ['Equal sides mean two equal angles. Both are x.', H('A triangle makes 180°. Take away the angle you know.', `180 − ${a} = ${180 - a}`), H(SHARE, `${180 - a} ÷ 2 = ?`)], steps: [`180 − ${a} = ${180 - a}`, `${180 - a} ÷ 2 = ${x}°`],
         slips: slips(x, [[180 - a, 'share', SAY.shareIso], [a, 'same', SAY.sameIso], [180 - 2 * a, 'twin', SAY.sameIso]]), desc: `Isosceles triangle: ${a}° between the equal sides, x` };
     },
     isoBase(r) {
       const a = until(() => ang(r, 32, 76), a => a !== 60 && a !== 45);
       const x = 180 - 2 * a, at = int(r, 0, 1), corners = [null, null, { label: 'x', cls: 'x', key: 'x' }];
       corners[at] = { label: a + '°', cls: 'k0', key: 'k' };
-      return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles: [a, a, x], corners, equal: [[0, 2], [1, 2]], rot: pick(r, [0, 0, 180]), flip: false }, ring: { total: 180, pieces: [a, a], n: 1 },
-        help: ['Two of the angles are equal.', `The matching angle is ${a}° too.`, `Take ${a} and ${a} from 180.`], steps: [`${a} + ${a} = ${2 * a}`, `180 − ${2 * a} = ${x}°`],
+      const spec = { type: 'tri', angles: [a, a, x], corners, equal: [[0, 2], [1, 2]], rot: pick(r, [0, 0, 180]), flip: false };
+      return { topic: 'tri', total: 180, answer: x, spec, helpSpec: Object.assign({}, spec, { corners: corners.map(c => c || { label: a + '°', cls: 'k0', key: 'k' }) }), ring: { total: 180, pieces: [a, a], n: 1 },
+        help: [`Equal sides mean two equal angles. Both are ${a}°.`, H(ADD2, `${a} + ${a} = ${2 * a}`), H('A triangle makes 180°. x is the rest.', `180 − ${2 * a} = ?`)], steps: [`${a} + ${a} = ${2 * a}`, `180 − ${2 * a} = ${x}°`],
         slips: slips(x, [[180 - a, 'twin', SAY.twinIso], [a, 'same', SAY.sameIso], [(180 - a) / 2, 'twin', SAY.twinIso], [2 * a, 'added', SAY.added180]]), desc: `Isosceles triangle: one equal angle ${a}°, x between the equal sides` };
     },
     triExt(r) {
       const [a, c] = until(() => [ang(r, 30, 95), ang(r, 30, 95)], ([a, c]) => { const b = 180 - a - c; return a !== c && b >= 32 && b !== 90 && a + c !== 90 && b !== a && b !== c; });
       const b = 180 - a - c, x = a + c;
-      return { topic: 'tri', total: 180, answer: x, spec: { type: 'tri', angles: [a, b, c], corners: [{ label: a + '°', cls: 'k0', key: 'k' }, null, { label: c + '°', cls: 'k1', key: 'k' }], ext: { at: 1, from: 0, label: 'x', cls: 'x', key: 'x' }, rot: pick(r, [0, 0, 180]), flip: r() < 0.5 },
+      const spec = { type: 'tri', angles: [a, b, c], corners: [{ label: a + '°', cls: 'k0', key: 'k' }, null, { label: c + '°', cls: 'k1', key: 'k' }], ext: { at: 1, from: 0, label: 'x', cls: 'x', key: 'x' }, rot: pick(r, [0, 0, 180]), flip: r() < 0.5 };
+      return { topic: 'tri', total: 180, answer: x, spec, helpSpec: Object.assign({}, spec, { corners: [spec.corners[0], { label: b + '°', cls: 'k2', key: 'k' }, spec.corners[2]] }),
         ring: { total: 180, pieces: [b], n: 1, note: 'the inside angle' },
-        help: ['Find the inside angle beside x.', 'It makes a straight line with x.', 'Take the inside angle from 180.'], steps: [`${a} + ${c} = ${a + c}`, `180 − ${a + c} = ${b}`, `180 − ${b} = ${x}°`],
+        help: ['A triangle’s angles make 180°.', H('First find the angle inside, next to x.', `${a} + ${c} = ${a + c}`, `180 − ${a + c} = ${b}`), H('That angle and x make a straight line.', `180 − ${b} = ?`)], steps: [`${a} + ${c} = ${a + c}`, `180 − ${a + c} = ${b}`, `180 − ${b} = ${x}°`],
         slips: slips(x, [[b, 'inside', SAY.inside], [360 - a - c, 'full', SAY.fullTri], [Math.abs(a - c), 'subtract', SAY.subtract]]), desc: `Triangle: ${a}°, ${c}°, x outside` };
     },
     parOne(r) { return par(r, 1); },
@@ -184,9 +198,10 @@
       reveal.arcs.push({ cross: c, q, value: size(q), label: here ? size(q) + '°' : '', cls: size(q) === k ? 'k0' : 'k1', key: c === cx && q === qx ? 'x' : 'k' });
     }
     const small = Math.min(k, 180 - k), kIs = k === small ? 'small' : 'big', xIs = x === small ? 'small' : 'big';
-    return { topic: 'par', total: null, answer: x, spec, reveal, ring: same ? null : { total: 180, pieces: [k], n: 1 },
+    const helpSpec = Object.assign({}, reveal, { arcs: reveal.arcs.map(c => c.key === 'x' ? Object.assign({}, c, { label: 'x' }) : c) });   // every angle coloured by its size; x still says x
+    return { topic: 'par', total: null, answer: x, spec, reveal, helpSpec, ring: same ? null : { total: 180, pieces: [k], n: 1 },
       choice: { ask: `${k}° is the ${kIs} size. Which size is x?`, options: [{ label: 'Small', right: xIs === 'small' }, { label: 'Big', right: xIs === 'big' }] },
-      help: ['There are only two sizes of angle.', `Is x the same size as ${k}°?`, `If not, take ${k} from 180.`],
+      help: ['There are only two sizes of angle here.', H('Same colour means the same size.'), same ? H(`x is the same colour as ${k}°.`) : H('x is the other colour. The two sizes make 180°.', `180 − ${k} = ?`)],
       steps: same ? [`x is the ${xIs} size, the same as ${k}°.`, `x = ${x}°`] : [`x is the ${xIs} size, so not ${k}°.`, `180 − ${k} = ${x}°`],
       slips: slips(x, [[180 - x, same ? 'twin' : 'other', same ? SAY.twinPar : SAY.otherPar], [360 - k, 'full', SAY.fullLine]]),
       desc: `${nB === 1 ? 'Parallel lines, one crossing line' : 'Two pairs of parallel lines'}: ${k}°, x` };
@@ -196,6 +211,7 @@
     const q = MAKE[kind](rng(seed * 7919 + kind.length * 104729 + kind.charCodeAt(0) * 31 + kind.charCodeAt(kind.length - 1)));
     q.kind = kind; q.seed = seed;
     if (!q.choice) q.choice = CHOICE_TOTAL(q.total);
+    q.choiceHelp = CHOICE_HELP[kind === 'triExt' ? 'ext' : q.topic];
     return q;
   }
   function judge(q, given) {

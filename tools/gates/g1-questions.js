@@ -84,9 +84,44 @@ function check(q, judge) {
     if (!sl.tag || !sl.say || words(sl.say) > 14) f.push('slip without a short reason');
   });
   if (!q.slips.length) f.push('no slips');
-  // help: 1 to 3 steps, 10 words at most, never the answer
-  if (q.help.length < 1 || q.help.length > 3) f.push('help has ' + q.help.length + ' steps');
-  q.help.forEach(h => { if (words(h) > 10) f.push('help step over 10 words: ' + h); if (!par && new RegExp('(^|\\D)' + q.answer + '(\\D|$)').test(h)) f.push('help gives the answer'); });
+  // help: the plain fact first, then one or two steps that SHOW the sum with her numbers.
+  // Every sum is worked for her except the last one, which ends "= ?" and is hers to do. Words never give the answer.
+  if (q.help.length < 2 || q.help.length > 3) f.push('help has ' + q.help.length + ' steps');
+  if (typeof q.help[0] !== 'string') f.push('help does not start with the plain fact');
+  const hSay = q.help.map(h => typeof h === 'string' ? h : h && h.say), hSums = [].concat(...q.help.map(h => (h && h.sums) || []));
+  hSay.forEach(h => {
+    if (!h) return f.push('help step with no words');
+    if (words(h) > 10) f.push('help step over 10 words: ' + h);
+    if (!par && new RegExp('(^|\\D)' + q.answer + '(\\D|$)').test(h)) f.push('help gives the answer');
+  });
+  hSums.forEach((line, i) => {
+    const m = line.match(/^(\d+) ([+−÷]) (\d+) = (\d+|\?)$/);
+    if (!m) return f.push('help sum is not a plain sum: ' + line);
+    const a = +m[1], b = +m[3], v = m[2] === '+' ? a + b : m[2] === '−' ? a - b : a / b;
+    if (i === hSums.length - 1) { if (m[4] !== '?') f.push('last help sum gives its answer: ' + line); if (v !== q.answer) f.push('last help sum does not make x: ' + line); }
+    else if (m[4] === '?') f.push('a middle help sum is left open: ' + line);
+    else if (v !== +m[4]) f.push('false help sum: ' + line);
+  });
+  const worked = q.steps.filter(l => /^\d+ [+−÷] \d+ = \d+°?$/.test(l)).map(l => l.replace(/°$/, ''));
+  if (hSums.map(l => l.replace('?', q.answer)).join(' | ') !== worked.join(' | ')) f.push('help sums differ from the working');
+  if (!par && !hSums.length) f.push('help shows no sum');
+  // the help picture (if any) can be drawn, is readable, and never prints the answer
+  if (q.helpSpec) {
+    let HL = null;
+    try { HL = D.layout(q.helpSpec); } catch (e) { f.push('help picture cannot be drawn: ' + e.message); }
+    if (HL) {
+      if (!par) HL.labels.forEach(l => { if (l.text === q.answer + '°') f.push('help picture shows the answer'); });
+      if (par && HL.labels.filter(l => l.text === 'x').length !== 1) f.push('help picture does not label x');
+      if (HL.labels.length <= L.labels.length && !par) f.push('help picture adds nothing');
+      HL.labels.forEach((l, i) => {
+        HL.labels.forEach((m, j) => { if (j > i && Math.abs(l.x - m.x) < (l.w + m.w) / 2 + 1 && Math.abs(l.y - m.y) < (l.h + m.h) / 2 + 1) f.push(`help picture: labels ${l.text} and ${m.text} overlap`); });
+        HL.segs.forEach(sg => { if (rectHitsSeg(l, sg, 2.5)) f.push(`help picture: label ${l.text} sits on a line`); });
+      });
+    }
+  } else if (par || /^(isoApex|isoBase|triExt)$/.test(q.kind)) f.push('no help picture');
+  // "Try it", first step: its own help says how to tell, in 2 or 3 short lines
+  if (!Array.isArray(q.choiceHelp) || q.choiceHelp.length < 2 || q.choiceHelp.length > 3) f.push('first-step help is missing');
+  else q.choiceHelp.forEach(h => { if (typeof h !== 'string' || words(h) > 10) f.push('first-step help over 10 words: ' + h); });
   // the ring closes exactly with the answer
   if (q.ring) { const t = q.ring.pieces.reduce((a, b) => a + b, 0) + q.ring.n * q.answer; if (t !== q.ring.total) f.push('ring does not close: ' + t); }
   else if (!par) f.push('no ring');
@@ -206,6 +241,14 @@ const controls = [
   ['two labels on top of each other', 'pt2', q => { q.spec.arcs[1].from = q.spec.arcs[0].from; q.spec.arcs[1].to = q.spec.arcs[0].to; }],
   ['help step of 11 words', 'line2', q => { q.help[0] = 'one two three four five six seven eight nine ten eleven'; }],
   ['help that gives the answer', 'lineEq', q => { q.help[1] = 'x is ' + q.answer + '.'; }],
+  ['help with words only, no sum', 'pt1', q => { q.help[1] = { say: q.help[1].say, sums: [] }; }],
+  ['false sum in the help', 'line3', q => { q.help[1].sums[0] = q.help[1].sums[0].replace(/= \d+$/, '= 999'); }],
+  ['last help sum gives its answer', 'tri2', q => { q.help[2].sums[0] = q.help[2].sums[0].replace('?', q.answer); }],
+  ['a middle help sum left open', 'ptEq', q => { q.help[1].sums[1] = q.help[1].sums[1].replace(/= \d+$/, '= ?'); }],
+  ['help sum that is not in the working', 'tri2', q => { q.help[1].sums[0] = '10 + 20 = 30'; }],
+  ['help picture shows the answer', 'isoApex', q => { q.helpSpec.corners.forEach(c => { if (c && c.label === 'x') c.label = q.answer + '°'; }); }],
+  ['help picture missing on an equal-sides triangle', 'isoBase', q => { delete q.helpSpec; }],
+  ['first-step help missing', 'line2', q => { delete q.choiceHelp; }],
   ['picture shows the answer', 'tri2', q => { const i = q.spec.corners.findIndex(c => c && c.key === 'x'); q.spec.corners[i].label = q.answer + '°'; q.spec.corners[i].key = 'k'; }],
   ['square on a 60° corner', 'triSq', q => { const i = q.spec.angles.indexOf(90); q.spec.angles[i] = 60; q.spec.angles[(i + 1) % 3] += 30; }],
   ['ring that does not close', 'isoApex', q => { q.ring.n = 1; }],

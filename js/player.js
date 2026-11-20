@@ -38,9 +38,14 @@ window.Player = (function () {
     livePad = stop;
     return { clear() { v = ''; paint(); }, stop };
   }
-  function showHelp(ui, steps) {
+  /* The help: each step is a short line, then the sum it means with her numbers. The last sum is left for her.
+     Some questions also have a help picture, with one more thing marked on it. */
+  const helpHtml = steps => '<ol>' + steps.map(t => typeof t === 'string' ? `<li><span class="say">${esc(t)}</span></li>`
+    : `<li><span class="say">${esc(t.say)}</span>${(t.sums || []).map(x => `<b class="sum">${esc(x)}</b>`).join('')}</li>`).join('') + '</ol>';
+  function showHelp(ui, steps, q, spec) {
     const h = ui.ctl.querySelector('#help'), s = ui.ctl.querySelector('#stuck');
-    h.innerHTML = '<ol>' + steps.map(t => `<li>${esc(t)}</li>`).join('') + '</ol>'; h.hidden = false; if (s) s.hidden = true;
+    h.innerHTML = helpHtml(steps); h.hidden = false; if (s) s.hidden = true;
+    if (spec && q) ui.pic.innerHTML = D.svg(spec, { alt: esc(q.desc) });
     ui.pic.classList.remove('hint'); void ui.pic.offsetWidth; ui.pic.classList.add('hint');
   }
   function ringFor(q, value) {
@@ -72,7 +77,7 @@ window.Player = (function () {
       ui.ctl.innerHTML = `<div class="help" id="help" hidden></div><p class="sub bad" id="say" aria-live="polite"></p>
         <div class="duo">${q.choice.options.map((o, k) => `<button class="btn soft opt" type="button" data-o="${k}">${esc(o.label)}</button>`).join('')}</div>
         <button class="btn soft small" id="stuck" type="button">Stuck? Show me</button>`;
-      ui.ctl.querySelector('#stuck').onclick = () => showHelp(ui, q.help.slice(0, 1));
+      ui.ctl.querySelector('#stuck').onclick = () => showHelp(ui, q.choiceHelp, q, q.topic === 'par' ? q.helpSpec : null);
       ui.ctl.querySelectorAll('.opt').forEach(b => { b.onclick = () => {
         if (!q.choice.options[+b.dataset.o].right) { FX.chime('wrong'); reshake(b); ui.ctl.querySelector('#say').textContent = 'Not that one. Look at the picture again.'; return; }
         FX.chime('place'); find();
@@ -81,12 +86,12 @@ window.Player = (function () {
         ui.job.textContent = (q.total ? `They add up to ${q.total}°.` : `Yes: ${right.label.toLowerCase()}.`) + ' Now find x.';
         ui.ctl.innerHTML = `<div class="help" id="help" hidden></div><p class="sub bad" id="say" aria-live="polite" hidden></p>${padHtml()}`;
         if (CONFIG.local) window.__answer = q.answer;
-        ui.ctl.querySelector('#stuck').onclick = () => showHelp(ui, q.help);
+        ui.ctl.querySelector('#stuck').onclick = () => showHelp(ui, q.help, q, q.helpSpec);
         const pad = wirePad(ui.ctl, given => {
           const j = Q.judge(q, given), last = i + 1 >= n;
           if (!j.right && ++wrongs < 3) {
             const say = ui.ctl.querySelector('#say'); say.textContent = j.say || 'Not yet. Try again.'; say.hidden = false;
-            pad.clear(); FX.chime('wrong'); reshake(ui.pic); if (wrongs === 2) showHelp(ui, q.help); return;
+            pad.clear(); FX.chime('wrong'); reshake(ui.pic); if (wrongs === 2) showHelp(ui, q.help, q, q.helpSpec); return;
           }
           pad.stop();
           feedback(ui, q, given, j, last ? 'Start the quiz' : 'Next one', () => {
@@ -103,14 +108,14 @@ window.Player = (function () {
   /* ---------- The score screen, shared by the Quiz and "Add or take away?" ---------- */
   function result(host, L, ctx, me, o) {
     const n = o.marks.length, score = o.marks.filter(Boolean).length, stars = Q.stars(score, n), end = Date.now();
-    const A = { id: Store.newId(), subject: 'maths', topic: 'angles', lesson: L.id, lessonTitle: L.title, score, total: n, startedAt: new Date(o.startedAt).toISOString(), finishedAt: new Date(end).toISOString(),
+    const A = { id: Store.newId(), subject: 'maths', topic: o.topic || 'angles', lesson: L.id, lessonTitle: L.title, score, total: n, startedAt: new Date(o.startedAt).toISOString(), finishedAt: new Date(end).toISOString(),
       durationSec: Math.round((end - o.startedAt) / 1000), device: Store.device(), appVersion: CONFIG.version, detail: o.detail };
     const dev = /iPad|iPhone/.test(A.device) ? A.device : 'device';
     host.className = 'sheet result';
     host.innerHTML = `<div class="bigstars" role="img" aria-label="${stars} of 3 stars">${[0, 1, 2].map(k => k < stars ? `<b style="--i:${k}">★</b>` : '★').join('')}</div>
       <p class="score">${score} out of ${n}</p><p class="savenote" id="save" aria-live="polite">Saving your score…</p>
       ${o.review.length ? `<p class="sub">Look at ${o.review.length === 1 ? 'this one' : 'these'} again.</p><ul class="review">${o.review.join('')}</ul>` : `<p class="sub">${o.allRight}</p>`}
-      <div class="stack"><button class="btn" id="again" type="button">${o.againLabel}</button>${o.extra ? o.extra(stars) : ''}<a class="btn soft" href="#/maths/angles">Back to lessons</a></div>`;
+      <div class="stack"><button class="btn" id="again" type="button">${o.againLabel}</button>${o.extra ? o.extra(stars) : ''}<a class="btn soft" href="${o.back || '#/maths/angles'}">Back to lessons</a></div>`;
     window.scrollTo(0, 0); ctx.done('quiz');
     if (stars === 3) { FX.chime('win'); FX.confetti(); } else if (stars) { FX.chime('right'); FX.at(host.querySelector('.bigstars'), 30); }
     host.querySelector('#again').onclick = () => { if (me === run) o.again(); };
@@ -185,7 +190,7 @@ window.Player = (function () {
       const ui = frame(host, q, 'Find x.', `Question ${i + 1} of ${n}`, dots(marks, i, n));
       if (CONFIG.local) { window.__answer = q.answer; window.__q = q; }
       ui.ctl.innerHTML = `<div class="help" id="help" hidden></div>${padHtml()}`;
-      ui.ctl.querySelector('#stuck').onclick = () => { helped = true; showHelp(ui, q.help); };
+      ui.ctl.querySelector('#stuck').onclick = () => { helped = true; showHelp(ui, q.help, q, q.helpSpec); };
       const pad = wirePad(ui.ctl, given => {
         pad.stop();
         const j = Q.judge(q, given); marks.push(j.right);
@@ -203,5 +208,8 @@ window.Player = (function () {
     return stopAll;
   }
   function stopAll() { run++; if (livePad) livePad(); }
-  return { tryIt, quiz, plan };
+  /* The pieces the Minus numbers screens share with these ones. */
+  const kit = { esc, newSeed, reshake, dots, helpHtml, result, stopAll, begin: () => ++run, live: me => me === run,
+    hold(stop) { if (livePad) livePad(); livePad = stop; }, drop(stop) { if (livePad === stop) livePad = null; } };
+  return { tryIt, quiz, plan, kit };
 })();

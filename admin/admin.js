@@ -13,6 +13,27 @@
     'plan-gap': 'Chose to take one angle from the other', 'plan-add': 'Chose to add to the whole instead of taking away',
     'plan-mixed': 'Chose the working that takes one away then adds the other'
   };
+  // Minus numbers has its own slips: 'added' and 'near' mean something else there.
+  var MINUS_SLIPS = {
+    notTidied: 'Did not join the two signs that touch first',
+    twoMinus: 'Made a plus from two minus signs that do not touch',
+    sign: 'Right number, wrong sign',
+    tookAway: 'Took away when the signs were the same (should add)',
+    added: 'Added when the signs were different (should take away)',
+    near: 'Close: an adding or taking away slip',
+    notTouching: 'Joined two signs that do not touch',
+    oneSign: 'Said signs touch when there was only one sign',
+    missedTouch: 'Missed the two signs that touch',
+    twins: 'Two minus signs: picked a minus, not a plus',
+    oddPair: 'A plus and a minus: picked a plus, not a minus'
+  };
+  function isMinus(a) { return !!a && (a.topic === 'minus' || /^m(\d+|mix)$/.test(String(a.lesson || ''))); }
+  function slipLabel(d, a) { return ((d.topic === 'minus' || isMinus(a)) ? MINUS_SLIPS[d.slip] : SLIPS[d.slip]) || 'Something else'; }
+  function lessonName(a) {
+    var t = a.lessonTitle || ('Lesson ' + a.lesson);
+    return isMinus(a) ? 'Minus numbers: ' + t : (a.lesson === 'mixed' ? 'Angles: ' + t : t);
+  }
+  function show(v) { return typeof v === 'number' && v < 0 ? '−' + Math.abs(v) : v; }
   var MSG = {
     'bad-key': 'That key did not work.', locked: 'Too many tries. Wait five minutes.',
     net: 'Could not reach the score sheet. Check the connection.', other: 'Something went wrong. Try again.'
@@ -122,7 +143,13 @@
   }
   function stamp(a) { return a.finishedAt || a.startedAt || ''; }
   function time(a) { var t = new Date(stamp(a)).getTime(); return isNaN(t) ? 0 : t; }
-  function lessonOrder(l) { if (l === 'plan') return 3.5; var n = parseInt(l, 10); return isNaN(n) ? 999 : n; }
+  function lessonOrder(l) {
+    if (l === 'plan') return 3.5;
+    if (l === 'mixed') return 50;
+    if (/^m\d+$/.test(l)) return 100 + parseInt(l.slice(1), 10);
+    if (l === 'mmix') return 150;
+    var n = parseInt(l, 10); return isNaN(n) ? 999 : n;
+  }
 
   // ---- main page ----
   function render(data) {
@@ -166,7 +193,7 @@
       var best = list.reduce(function (m, a) { return pct(a) > pct(m) ? a : m; }, list[0]);
       var last = list[0]; // already newest first
       var card = el('section', { class: 'card sum' }, [
-        el('h3', { text: last.lessonTitle || ('Lesson ' + l) }),
+        el('h3', { text: lessonName(last) }),
         el('div', {}, [el('span', { class: 'big', text: best.score + ' / ' + best.total }), ' ', starEl(stars(pct(best)))]),
         el('dl', {}, [
           el('dt', { text: 'Best' }), el('dd', { text: pct(best) + '%' }),
@@ -184,7 +211,7 @@
     attempts.forEach(function (a) {
       (a.detail || []).forEach(function (d) {
         if (d.right === false) {
-          var label = SLIPS[d.slip] || 'Something else';
+          var label = slipLabel(d, a);
           tally[label] = (tally[label] || 0) + 1;
         }
       });
@@ -211,7 +238,7 @@
       var id = 'q' + i;
       var btn = el('button', { class: 'row-btn', type: 'button', 'aria-expanded': 'false', 'aria-controls': id }, [
         el('span', { class: 'when', text: when(stamp(a), true) }),
-        el('span', { class: 'meta', text: (a.lessonTitle || ('Lesson ' + a.lesson)) + ' · ' + dur(a.durationSec) }),
+        el('span', { class: 'meta', text: lessonName(a) + ' · ' + dur(a.durationSec) }),
         el('span', { class: 'right' }, [el('span', { class: 'score', text: a.score + ' / ' + a.total }), starEl(stars(pct(a)))])
       ]);
       var panel = el('div', { id: id, hidden: '' });
@@ -234,10 +261,10 @@
     d.forEach(function (q) {
       var line = [
         el('span', { class: 'mark ' + (q.right ? 'ok' : 'no'), 'aria-label': q.right ? 'right' : 'wrong', text: q.right ? '✓' : '✗' }),
-        'Anya: ' + q.given + ' · Answer: ' + q.correct
+        'Anya: ' + show(q.given) + ' · Answer: ' + show(q.correct)
       ];
       var extra = [];
-      if (!q.right) extra.push(el('span', { class: 'tag note', text: SLIPS[q.slip] || 'Something else' }));
+      if (!q.right) extra.push(el('span', { class: 'tag note', text: slipLabel(q, a) }));
       if (q.helped) extra.push(el('span', { class: 'tag', text: 'used help' }));
       if (q.ms != null) extra.push(el('span', { class: 'small nw', text: Math.round(q.ms / 1000) + ' s' }));
       var detail = el('div', { class: 'detail' }, [].concat(extra.map(function (x, i) { return i ? [' ', x] : [x]; }).reduce(function (m, x) { return m.concat(x); }, [])));

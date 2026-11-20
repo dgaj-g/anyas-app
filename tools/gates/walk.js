@@ -36,7 +36,10 @@ function fitCheck(o) {            // runs inside the page
     if (px < 11.5) out.push('a number on the picture is only ' + px.toFixed(1) + 'px tall: ' + el.textContent); });
   const job = all('.job')[0]; if (job && words(job.textContent) > 14) out.push('job line over 14 words: ' + job.textContent);
   const steps = all('.help li'); if (steps.length > 3) out.push('more than 3 help steps');
-  steps.forEach(li => { if (words(li.textContent) > 10) out.push('help step over 10 words: ' + li.textContent); });
+  steps.forEach(li => { const say = li.querySelector('.say') || li; if (words(say.textContent) > 10) out.push('help step over 10 words: ' + say.textContent); });
+  all('.help .sum').forEach(el => { const r = el.getBoundingClientRect(), box = el.closest('.help').getBoundingClientRect();
+    if (el.scrollWidth > el.clientWidth + 1 || r.right > box.right - 3 || r.height > parseFloat(getComputedStyle(el).fontSize) * 2.6) out.push('a help sum does not fit on one line: ' + el.textContent); });
+  if (all('.help').some(h => /object Object|undefined|NaN/.test(h.textContent))) out.push('the help shows broken words');
   let prose = 0; all('.job, .sub, .lead, .hello, .soon h1, .soon p, .keycard h1, .verdict').forEach(el => { prose += words(el.textContent); });
   if (!o.long && prose > 25) out.push('over 25 words of reading on one screen: ' + prose);
   return { out, prose };
@@ -239,6 +242,125 @@ async function slipWords() {
   must(a && a.detail.some(d => d.slip === 'mixed') && a.detail.some(d => d.slip === 'toobig'), 'her slip was not saved with its own tag');
 }
 
+/* ---------- Minus numbers ---------- */
+const CHEAT1 = 'Same signs make a plus. Different signs make a minus.', CHEAT2 = 'Same signs: add. Different signs: take away. Bigger wins the sign.';
+const MINUS_N = { m1: 6, m2: 6, m3: 6, mmix: 8 };
+const mstate = () => S.page.evaluate(() => ({ q: window.__q, a: window.__answer }));
+const mgo = async h => { await S.page.evaluate(() => { location.hash = '#/maths/minus'; }); await sleep(180); await S.page.evaluate(x => { location.hash = x; }, h); await sleep(280); };
+const mtype = async n => { if (n < 0) await tap('#neg'); for (const d of String(Math.abs(n))) await tap(`.key[data-k="${d}"]`); await tap('#check'); };
+const mnum = v => (v < 0 ? '−' + Math.abs(v) : String(v));
+/* What the screen must say once a typed answer is in. Used in the walk AND against a planted fault. */
+async function minusMarked(q, a, given) {
+  const v = await txt('.verdict'), out = [];
+  if (!(given === a ? /^Yes!/ : /^Not this time/).test(v)) out.push(`minus ${q.lesson} "${q.text}": the answer ${given} was marked the wrong way ("${v}")`);
+  if (v.indexOf('= ' + mnum(a)) < 0) out.push(`minus ${q.lesson} "${q.text}": the answer line does not show ${mnum(a)} ("${v}")`);
+  return out;
+}
+/* Plays one stage of one lesson. mode 'wrong' answers every quiz question wrongly. */
+async function minusStage(id, st, mode, look) {
+  const before = (await server('/__attempts')).length, seen = {}, name = `minus-${id}-${st}`, bad = mode === 'wrong' && st === 'quiz'; let asked = 0, warm = 0, ended = false;
+  await mgo(`#/maths/minus/${id}/${st}`);
+  for (let k = 0; k < 90; k++) {
+    if (await S.page.$('.score')) break;
+    const { q, a } = await mstate();
+    if (st === 'try' && q && q.lesson === id && q.stage === 'quiz') { ended = true; break; }   // "Start the quiz" ends Try it
+    if (!must(q && q.lesson === id && q.stage === st, `${name}: this is not the screen for this lesson (${JSON.stringify(q || {}).slice(0, 90)})`)) return;
+    if (q.mode === 'done') { ended = true; break; }
+    const first = !seen[q.mode]; seen[q.mode] = 1;
+    if (first && look) await stop(`${name}-${q.mode}`, { noScroll: true });
+    if (first && await S.page.$('#stuck:not([hidden])')) {       // open the help once for each kind of step
+      await tap('#stuck');
+      if (q.mode === 'pad') await S.page.waitForSelector('#drows:not([hidden]) .drow', { timeout: 3000 }).catch(() => {});
+      await sleep(280);
+      const h = await S.page.evaluate(() => ({ steps: document.querySelectorAll('#help:not([hidden]) li').length, sums: [...document.querySelectorAll('#help:not([hidden]) .sum')].map(e => e.textContent.trim()),
+        dots: !!document.querySelector('#drows:not([hidden]) .drow'), chips: document.querySelector('#line').classList.contains('chips'), marks: document.querySelectorAll('#line .mark').length }));
+      must(h.steps >= 1, `${name} ${q.mode}: "Stuck? Show me" shows no steps`);
+      if (q.mode === 'pad') {
+        must(h.dots && h.chips, `${name}: the help did not change the picture to coloured numbers and dots`);
+        must(h.sums.length && /= \?$/.test(h.sums[h.sums.length - 1]), `${name}: the help does not leave the last sum for her ("${h.sums[h.sums.length - 1]}")`);
+        must(!h.sums.some(s => s.endsWith('= ' + mnum(a))), `${name}: the help gives the answer away`);
+      } else must(h.marks > 0, `${name} ${q.mode}: the help did not mark the picture`);
+      if (look) await stop(`${name}-${q.mode}-help`, { noScroll: true });
+    }
+    if (q.mode === 'see') {
+      if (a === 'none') await tap('#none'); else for (const b of await S.page.$$('#line button[data-pair]')) await b.click();
+      await S.page.waitForSelector('#next', { visible: true, timeout: 6000 });
+      if (first && look) await stop(`${name}-see-after`, { noScroll: true }); await tap('#next');
+    } else if (q.mode === 'pad') {
+      const given = bad ? (a === 0 ? 1 : -a) : a;
+      await mtype(given); await S.page.waitForSelector('#next', { visible: true, timeout: 5000 });
+      (await minusMarked(q, a, given)).forEach(m => must(false, m));
+      if (given !== a) must((await txt('#ctl .sub')).length > 8, `${name}: a wrong answer got no reason`);
+      must((await S.page.$$('#ctl .work li')).length >= 1, `${name}: no working is shown after the answer`);
+      if (look && asked < 1) await stop(`${name}-fb-${mode}`, { noScroll: true, wait: 600 });
+      asked++; await tap('#next');
+    } else {                                                     // warm, tidy, team, sign: she taps one button
+      const opts = await S.page.$$eval('#ctl [data-v]', e => e.map(x => x.dataset.v)), other = opts.find(v => v !== String(a));
+      if (q.mode !== 'warm' && st === 'try' && first) {          // a wrong tap in Try it gets its reason, and she goes again
+        await tap(`#ctl [data-v="${other}"]`); await sleep(320);
+        must((await S.page.evaluate(() => { const s = document.querySelector('#say'); return s && /bad/.test(s.className) ? s.textContent.trim() : ''; })).length > 8, `${name} ${q.mode}: a wrong tap got no reason`);
+        if (look) await stop(`${name}-${q.mode}-wrong`, { noScroll: true });
+      }
+      const scored = st === 'quiz' && q.mode === 'tidy', pick = bad && scored ? other : String(a);
+      await tap(`#ctl [data-v="${pick}"]`);
+      if (q.mode === 'warm') { warm++; await S.page.waitForFunction((m, i) => { const x = window.__q; return !x || x.mode !== m || x.i !== i; }, { timeout: 6000 }, q.mode, q.i).catch(() => {}); }
+      else await sleep(380);
+      if (scored) {
+        await S.page.waitForSelector('#next', { visible: true, timeout: 5000 });
+        must((pick === String(a) ? /^Yes!/ : /^Not this time/).test(await txt('.verdict')), `${name} "${q.text}": the tap "${pick}" was marked the wrong way`);
+        if (pick !== String(a)) must((await txt('#ctl .sub')).length > 8, `${name}: a wrong tap got no reason`);
+        asked++;
+      }
+      if (await S.page.$('#next')) { if (look && first) await stop(`${name}-${q.mode}-after`, { noScroll: true }); await tap('#next'); }
+    }
+    await sleep(200);
+  }
+  if (st !== 'quiz') {
+    must(ended, `${name}: the stage never reached its end screen`);
+    if (st === 'try') { must(/\/quiz$/.test(await hash()), `${name}: "Start the quiz" did not open the quiz`); return; }
+    await stop(`${name}-end`, { noScroll: true, wait: 500 });
+    must(await S.page.$(`#app a[href$="/${id}/${st === 'see' ? 'try' : 'quiz'}"]`), `${name}: the end screen has no button to the next stage`);
+    return;
+  }
+  await S.page.waitForSelector('.score', { visible: true, timeout: 5000 });
+  await S.page.waitForFunction(() => { const e = document.querySelector('#save'); return e && !/Saving/.test(e.textContent); }, { timeout: 15000 });
+  const n = MINUS_N[id], want = bad ? 0 : n;
+  must(asked === n, `${name}: ${asked} questions were asked, wanted ${n}`); must(warm === 2, `${name}: ${warm} warm up taps, wanted 2`);
+  must((await txt('.score')) === `${want} out of ${n}`, `${name}: score line says "${await txt('.score')}", wanted ${want} out of ${n}`);
+  must((await txt('#save')) === 'Score saved.', `${name}: note says "${await txt('#save')}"`);
+  must(await S.page.$('.result a[href="#/maths/minus"]'), `${name}: the score screen has no way back to the lessons`);
+  await stop(`${name}-result-${mode}`, { long: true, wait: 700 });
+  const list = await server('/__attempts'), a = list[list.length - 1];
+  must(list.length === before + 1 && a && a.topic === 'minus' && a.lesson === id && a.score === want && a.total === n && a.detail.length === n && a.detail.every(d => d.topic === 'minus'),
+    `${name}: the sheet did not get the attempt (${JSON.stringify(a || {}).slice(0, 140)})`);
+  if (a && a.detail.length) must(a.detail[0].helped === true && a.detail.slice(1).every(d => d.helped === false), `${name}: "helped" was not recorded`);
+  if (a && bad) {
+    must(a.detail.every(d => d.right === false && d.slip), `${name}: wrong answers have no slip tag`);
+    must((await S.page.$$('.review li')).length === n, `${name}: the "look at these again" list does not have ${n} sums`);
+  }
+}
+async function minus(first) {
+  const p = S.page;
+  await section('minus-list', async () => {
+    await p.evaluate(() => { location.hash = '#/s/maths'; }); await stop('minus-maths', { wait: 900 });
+    must((await p.$$eval('a.card', e => e.map(x => x.getAttribute('href')).join(','))) === '#/maths/angles,#/maths/minus', 'the Maths page does not list Angles then Minus numbers');
+    await tap('a.card[href="#/maths/minus"]'); await stop('minus-lessons', { wait: 1100 });
+    must((await p.$$eval('a.card', e => e.length)) === 4, 'Minus numbers does not show four lessons');
+    await tap('a.cheatlink'); await stop('minus-cheats', { wait: 700, long: true });
+    const body = await p.evaluate(() => document.querySelector('#app').innerText.replace(/\s+/g, ' '));
+    [CHEAT1, CHEAT2].forEach(c => must(body.indexOf(c) >= 0, `the cheats page does not say "${c}"`));
+    must(await p.$('#app a[href="#/maths/minus"]'), 'the cheats page has no way back to the lessons');
+  });
+  for (const [id, stages] of [['m1', ['see', 'try', 'quiz']], ['m2', ['see', 'try', 'quiz']], ['m3', ['try', 'quiz']], ['mmix', ['quiz']]])
+    for (const st of stages) await section(`minus-${id}-${st}`, () => minusStage(id, st, 'right', true));
+  await section('minus-stars', async () => {
+    for (const id of ['m1', 'm2', 'm3', 'mmix']) must((await p.evaluate(k => Store.stars(k), 'maths.minus.' + id)) === 3, `Minus ${id}: a clean quiz did not earn 3 stars`);
+    await minusStage('m2', 'quiz', 'wrong', true); await minusStage('m1', 'quiz', 'wrong', first);
+    for (const id of ['m1', 'm2']) must((await p.evaluate(k => Store.stars(k), 'maths.minus.' + id)) === 3, `Minus ${id}: stars were taken away by a worse quiz`);
+    await p.evaluate(() => { location.hash = '#/maths/minus'; }); await stop('minus-lessons-after', { wait: 1100 });
+  });
+}
+
 async function keys(browser, w, h) {
   await section('key-screen', async () => {
     const p = await open(browser, w, h, appUrl()); await p.waitForSelector('.keycard', { visible: true, timeout: 8000 }); await stop('key', {});
@@ -258,7 +380,12 @@ async function dad(browser, w, h, name) {
     const p = await open(browser, w, h, appUrl('#k=test-dad')); await p.waitForFunction(() => /\/admin\//.test(location.pathname), { timeout: 8000 });
     await sleep(1500); await stop('admin-' + name, { root: 'body', long: true });
     const body = await p.evaluate(() => document.body.textContent);
-    ['Took one angle away, then added the other', 'Chose to take one angle from the other', 'Add or take away?'].forEach(t => must(body.indexOf(t) >= 0, `Dad's page does not say "${t}"`));
+    ['Took one angle away, then added the other', 'Chose to take one angle from the other', 'Add or take away?',
+      'Minus numbers: Signs that touch', 'Minus numbers: Mixed quiz', 'Angles: Mixed quiz', 'Right number, wrong sign'].forEach(t => must(body.indexOf(t) >= 0, `Dad's page does not say "${t}"`));
+    await p.evaluate(() => { const b = [...document.querySelectorAll('.row-btn')].find(x => /Minus numbers: Same or different/.test(x.textContent) && /0 \/ 6/.test(x.textContent)); if (b) b.click(); }); await sleep(300);
+    const shown = await p.evaluate(() => { const d = document.querySelector('.quiz div:not([hidden]) .qs'); return d ? d.innerText.replace(/\s+/g, ' ') : ''; });
+    must(/−\d/.test(shown) && /Right number, wrong sign/.test(shown) && !/the angles/.test(shown), `Dad's page: the wrong minus quiz does not show its sums and slips (${shown.slice(0, 160)})`);
+    await stop('admin-minus-open-' + name, { root: 'body', long: true });
     notes.push(`[${S.tag}] admin text starts: ` + (await p.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 260))));
     await p.close();
   });
@@ -312,6 +439,7 @@ async function walk(browser, w, h, first) {
       must((await q.evaluate(() => Store.stars('maths.angles.1'))) === 3, 'a new device did not get her stars from the sheet'); await q.close(); S.page = p;
     });
   } else await section('mixed', () => quiz('mixed', 'right', true));
+  S.page = p; await minus(first);
   await p.close();
   if (first || w > 1000) await dad(browser, w, h, S.tag);
   notes.push(`[${S.tag}] ${S.n} screens looked at; most reading on one work screen: ${S.prose} words`);
@@ -326,7 +454,9 @@ async function controls(browser) {   // the checker must catch planted faults, o
     ['taller than the screen', () => { const d = document.createElement('div'); d.style.height = '1500px'; document.querySelector('#app').appendChild(d); }],
     ['scrolls sideways', () => { const d = document.createElement('div'); d.style.cssText = 'width:900px;height:4px'; document.querySelector('#app').appendChild(d); }],
     ['number on the picture is only', () => { document.querySelectorAll('.pic .dg-label').forEach(t => { t.style.fontSize = '5px'; }); }],
-    ['help step over 10 words', () => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li>Add the two angles you can see and then take that away from 180.</li></ol>'; }],
+    ['help step over 10 words', () => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li><span class="say">Add the two angles you can see and then take that away from 180.</span><b class="sum">65 + 40 = 105</b></li></ol>'; }],
+    ['a help sum does not fit on one line', () => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li><span class="say">Add the two angles.</span><b class="sum">65 + 40 + 65 + 40 + 65 + 40 + 65 + 40 + 65 + 40 + 65 + 40 = 630</b></li></ol>'; }],
+    ['the help shows broken words', () => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li>[object Object]</li></ol>'; }],
   ];
   let caught = 0;
   for (const [want, fn] of plant) {
@@ -334,7 +464,22 @@ async function controls(browser) {   // the checker must catch planted faults, o
     const r = await p.evaluate(fitCheck, { noScroll: true });
     if (r.out.some(m => m.indexOf(want) >= 0)) caught++; else fails.push(`CONTROL NOT CAUGHT: ${want}`);
   }
-  await p.close(); notes.push(`controls caught: ${caught} of ${plant.length}`);
+  // Minus numbers: a long help step on a minus screen, and a wrong answer that the app marks right
+  const total = plant.length + 2;
+  await p.goto(`${BASE}/?fast=1&seed=7#/maths/minus/m2/try`, { waitUntil: 'load' }); await p.reload({ waitUntil: 'load' }); await p.waitForSelector('#ctl [data-v]', { visible: true, timeout: 8000 });
+  await p.evaluate(() => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li><span class="say">Look at both of the numbers and decide if their signs are the same or not.</span></li></ol>'; });
+  if ((await p.evaluate(fitCheck, { noScroll: true })).out.some(m => m.indexOf('help step over 10 words') >= 0)) caught++; else fails.push('CONTROL NOT CAUGHT: a long help step on a minus screen');
+  await p.goto(`${BASE}/?fast=1&seed=7#/maths/minus`, { waitUntil: 'load' }); await p.evaluate(() => { Minus.judge = () => ({ right: true }); });
+  await p.evaluate(() => { location.hash = '#/maths/minus/m2/quiz'; }); await sleep(300);
+  let hit = false;
+  for (let k = 0; k < 12 && !hit; k++) {
+    const { q, a } = await mstate(); if (!q) break;
+    if (q.mode === 'warm') { await tap(`#ctl [data-v="${a}"]`); await p.waitForFunction((m, i) => { const x = window.__q; return !x || x.mode !== m || x.i !== i; }, { timeout: 6000 }, q.mode, q.i).catch(() => {}); continue; }
+    if (q.mode === 'pad') { await mtype(-a); await p.waitForSelector('#next', { visible: true, timeout: 5000 }); hit = (await minusMarked(q, a, -a)).some(m => /marked the wrong way/.test(m)); break; }
+    break;
+  }
+  if (hit) caught++; else fails.push('CONTROL NOT CAUGHT: a wrong minus answer marked right');
+  await p.close(); notes.push(`controls caught: ${caught} of ${total}`);
 }
 
 (async () => {

@@ -146,7 +146,7 @@ body.booting #app { visibility: hidden; }
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .help { background: #fff4cf; border: 2px solid #ffd98a; border-radius: 18px; padding: 10px 14px; }
 .help ol { margin: 0; padding-left: 24px; font: 600 17px/1.45 Quicksand, sans-serif; }
-.verdict { margin: 0; font: 700 21px/1.2 Quicksand, sans-serif; text-align: center; }
+.verdict { margin: 0; font: 700 21px/1.2 Quicksand, sans-serif; text-align: center; text-wrap: balance; }
 .verdict.good { color: #0b7562; } .verdict.bad { color: #b5125f; }
 .work { list-style: none; margin: 0; padding: 8px 14px; background: #fff; border: 2px solid #f1dcea; border-radius: 16px; font: 600 16px/1.5 Quicksand, sans-serif; text-align: center; }
 .work li:last-child { font-weight: 700; color: #8f5a00; }
@@ -283,3 +283,122 @@ body.booting #app { visibility: hidden; }
   .subject .ico { width: 88px; height: 88px; font-size: 48px; }
   .split .pic { height: min(58vh, 500px); }
 }
+
+/* ---------- Help, second version: a short line, then the sum it means with her numbers ---------- */
+.help li + li { margin-top: 4px; }
+.help .say { display: block; }
+.help .sum { display: inline-block; margin: 3px 8px 1px 0; padding: 2px 11px; border-radius: 11px; background: #fff; border: 2px solid #ffd98a; color: #8f5a00;
+  font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.3; }
+@media (max-width: 699px), (max-height: 860px) {          /* phones, and an iPad on its side: the sum sits after the words when there is room */
+  .help .say { display: inline; }
+  .help .sum { margin: 2px 0 0 5px; }
+}
+@media (min-width: 700px) and (max-height: 860px) { .help ol { font-size: 19px; } }
+@media (max-height: 760px) and (max-width: 699px) {
+  .help li + li { margin-top: 0; }
+  .help .sum { margin-top: 1px; padding: 0 8px; border-width: 1.5px; }
+}
+@media (max-height: 700px) and (max-width: 699px) {       /* the smallest phones: the help needs the room */
+  body:has(#help:not([hidden])) #strip { display: none; }
+  .help { padding-top: 5px; padding-bottom: 5px; }
+  #ctl:has(> #help:not([hidden])) .key { min-height: 44px; }
+}
+
+/* ---------- Minus numbers (version 4) ----------
+   A sum is built from pieces. Every sign is drawn from bars, so two minus bars can cross to make a plus.
+   A minus is always rose and a plus is always gold, on every screen. */
+.minusico { font-size: 1.5em; line-height: 1; }
+.stages.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sub.good { color: #0b7562; }
+.cheatlink { margin-top: 14px; }
+.sumcard { position: relative; flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 132px; padding: 14px 8px;
+  border-radius: 22px; border: 2px solid var(--line); background: linear-gradient(180deg, #fff, #fff3f9); overflow: hidden; }
+.sumline { display: flex; align-items: center; justify-content: center; white-space: nowrap; font: 700 clamp(44px, 12.5vw, 64px)/1.1 Quicksand, sans-serif; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sumline.eq { font-size: clamp(34px, 9.6vw, 56px); }
+.grp { display: inline-flex; align-items: center; padding: 0 .05em; border: 3px solid transparent; border-radius: .34em; transition: background .35s, border-color .35s, color .35s, padding .35s, margin .35s; }
+.tok { display: inline-block; }
+.tok.eq { margin: 0 .14em; color: #8a6a93; }
+.tok.sign { position: relative; flex: none; width: .62em; height: 1.1em; padding: 0; border: 0; background: none; font: inherit; transition: transform .6s cubic-bezier(.5, 0, .2, 1), width .35s, opacity .35s, margin .35s; }
+.tok.sign.minus { color: #b5125f; } .tok.sign.plus { color: #8f5a00; }
+.tok.sign::before, .tok.sign.plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: .5em; height: .11em; margin: -.055em 0 0 -.25em; border-radius: .06em; background: currentColor; }
+.tok.sign.plus::after { transform: rotate(90deg); transition: transform .5s; }
+.tok.sign.plus.losing::after { transform: rotate(90deg) scaleX(0); }
+.tok.sign.fly { z-index: 2; background: none !important; box-shadow: none !important; }
+.tok.sign.pop { animation: m-pop .55s cubic-bezier(.3, 1.6, .5, 1); }
+.tok.sign.ghost { width: 0; opacity: 0; }
+.gb > [data-role="op"] { margin: 0 .17em; }
+.gb > [data-role="op"][data-pair] { margin-right: .03em; }
+button.tok.sign { width: .8em; min-width: 46px; min-height: 48px; margin: 0 3px; border-radius: 14px; background: #fbeef6; box-shadow: 0 3px 0 #e5c6dc; }
+.gb > button[data-role="op"] { margin: 0 3px 0 .12em; }
+button.tok.sign.lit { background: #fff3d6; box-shadow: 0 0 0 4px #ffd98a; }
+/* each number wears its sign */
+.chips .grp { padding: 0 .13em; margin: 0 .05em; }
+.chips .grp.plus { background: #fff3d6; border-color: #ffd98a; color: #8f5a00; }
+.chips .grp.minus { background: #ffe3ef; border-color: #f7a8c8; color: #b5125f; }
+.sumline.chips .tok.sign.ghost { width: .62em; opacity: 1; }
+.sumline.chips .gb > [data-role="op"] { margin: 0; }
+.mark { animation: m-mark 1s ease-in-out 3; border-radius: .3em; }
+@keyframes m-pop { 0% { transform: scale(.2); } 100% { transform: scale(1); } }
+@keyframes m-mark { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 190, 60, 0); } 50% { box-shadow: 0 0 0 5px rgba(255, 190, 60, .95); } }
+@keyframes m-left { 50% { transform: scale(1.3); } }
+@keyframes m-nudge { 0%, 100% { transform: none; } 50% { transform: scale(1.07); box-shadow: 0 0 0 5px rgba(255, 190, 60, .9); } }
+.nudge { animation: m-nudge 1s ease-in-out 3; }
+/* the dots: one for each number; different signs cancel in pairs */
+.dotrows { display: grid; gap: 6px; justify-items: start; font-size: 22px; }
+.drow { display: flex; align-items: center; gap: 5px; min-height: 18px; }
+.drow i { flex: none; width: 17px; height: 17px; border-radius: 50%; transition: opacity .4s, transform .4s; transition-delay: calc(var(--k, 0) * 90ms); }
+.drow.minus i { background: #e0468f; } .drow.plus i { background: #f0b429; }
+.drow i.gone { opacity: .16; transform: scale(.6); }
+.drow i.left { animation: m-left .9s ease-in-out .8s 2; }
+.tok.sign.mini { width: .62em; height: .8em; }
+.drow .tok.sign.mini { margin-right: 3px; }
+.dotsum { margin: 0; padding: 1px 12px; border-radius: 11px; background: #fff; border: 2px solid #ffd98a; color: #8f5a00; font: 700 19px/1.3 Quicksand, sans-serif; font-variant-numeric: tabular-nums; }
+.btn.opt .tok.sign.mini { font-size: 1.35em; }
+.btn.opt.yes .tok.sign { color: inherit; }
+/* the minus key */
+.key.neg { flex: none; width: 58px; min-height: 52px; display: grid; place-items: center; font-size: 30px; color: #b5125f; background: #ffe3ef; box-shadow: 0 3px 0 #f1b6d0; }
+.key.neg.on { background: #b5125f; box-shadow: 0 3px 0 #7d0b41; } .key.neg.on .tok.sign { color: #fff; }
+/* the working after an answer */
+.work.steps { text-align: left; } .work.steps li + li { margin-top: 3px; } .work.steps li:last-child { color: var(--ink); font-weight: 600; }
+.work .sum { display: inline-block; padding: 0 9px; border-radius: 10px; background: #fff4cf; border: 1.5px solid #ffd98a; color: #8f5a00; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.review .mini.msum { width: auto; min-width: 86px; padding: 5px 8px; border-radius: 10px; background: #fff3f9; border: 1.5px solid #f1dcea; font: 700 18px/1.3 Quicksand, sans-serif; text-align: center; white-space: nowrap; }
+/* the cheats as pictures */
+.rule { display: flex; align-items: center; justify-content: center; white-space: nowrap; font: 700 clamp(28px, 8vw, 44px)/1.1 Quicksand, sans-serif; font-variant-numeric: tabular-nums; }
+.rule .arrow { margin: 0 .22em; font-size: .6em; color: #b58cc0; }
+.rule .how { padding: .42em .8em; border-radius: 999px; background: linear-gradient(135deg, #ff7fb8, #b469ff); color: #fff; font-size: .4em; line-height: 1; }
+.rule .tok.sign.made { border-radius: .3em; box-shadow: 0 0 0 3px #ffd98a; background: #fff; }
+.sumcard.rules { gap: 16px; }
+.cheats { display: grid; gap: 14px; }
+.cheat { flex: none; align-items: center; gap: 14px; padding: 18px 12px 20px; }
+.cheat h2 { margin: 0; display: flex; align-items: center; gap: 10px; font: 700 22px/1.2 Quicksand, sans-serif; }
+.cheat h2 i { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 18px; color: #fff; background: linear-gradient(135deg, #ff7fb8, #b469ff); }
+.cheat .sub { font-size: 18px; font-weight: 700; text-wrap: balance; }
+@media (max-height: 700px) and (max-width: 699px) {       /* the smallest phones */
+  .sumcard { min-height: 104px; padding: 8px 8px; gap: 6px; } .dotrows { gap: 4px; } .drow i { width: 14px; height: 14px; } .dotsum { font-size: 16px; }
+  .work.steps { font-size: 15px; line-height: 1.4; padding: 6px 12px; }
+}
+@media (min-width: 700px) and (min-height: 700px) {       /* her iPad */
+  .sumline { font-size: 84px; } .sumline.eq { font-size: 68px; } .sumcard { min-height: 250px; gap: 18px; padding: 22px 14px; }
+  button.tok.sign { min-width: 64px; min-height: 64px; margin: 0 5px; }
+  .dotrows { gap: 9px; font-size: 30px; } .drow { gap: 7px; } .drow i { width: 24px; height: 24px; } .dotsum { font-size: 26px; padding: 2px 16px; }
+  .key.neg { width: 64px; min-height: 64px; font-size: 36px; }
+  .rule { font-size: 54px; } .cheat { padding: 26px 20px 28px; gap: 20px; } .cheat h2 { font-size: 28px; } .cheat h2 i { width: 42px; height: 42px; font-size: 22px; } .cheat .sub { font-size: 24px; }
+  .review .mini.msum { font-size: 22px; min-width: 110px; } .cheatlink { margin-top: 20px; }
+}
+@media (min-width: 900px) and (orientation: landscape) {
+  .msplit .sumcard { min-height: min(52vh, 430px); }
+  .cheats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cheats .rule { font-size: 46px; }
+}
+/* cheat 1 is two signs and an arrow, so it is drawn bigger than the number chips of cheat 2 */
+.rule:not(.chips) { font-size: clamp(42px, 12.5vw, 60px); }
+.sumline:not(.chips) .gb > span[data-role="op"]:not([data-pair]) { margin: 0 .22em 0 .1em; }
+@media (min-width: 700px) and (min-height: 700px) { .rule:not(.chips) { font-size: 76px; } }
+@media (min-width: 900px) and (orientation: landscape) { .cheats .rule:not(.chips) { font-size: 62px; } }
+
+/* Cover the signs: both signs fade, the bigger number is ringed, then its own sign comes back */
+.sumline.cover .grp > .tok.sign { opacity: .12; }
+.sumline.cover .grp.win > .tok.sign { opacity: 1; }
+.sumline.cover .grp.big { box-shadow: 0 0 0 5px rgba(255, 190, 60, .95); animation: m-big 1.2s ease-in-out 1 both; }
+@keyframes m-big { 0% { box-shadow: 0 0 0 0 rgba(255, 190, 60, 0); } 40% { box-shadow: 0 0 0 8px rgba(255, 190, 60, .95); } 100% { box-shadow: 0 0 0 5px rgba(255, 190, 60, .95); } }
+.cheat .sub.note { font-size: 16px; font-weight: 600; color: #8a6a93; }
+@media (min-width: 700px) and (min-height: 700px) { .cheat .sub.note { font-size: 20px; } }

@@ -1,6 +1,6 @@
 # Anya's App — handoff
 
-A small web app for Anya (first year). Home screen of ten subjects; Maths has the first topic, Angles.
+A small web app for Anya (first year). Home screen of ten subjects; Maths has two topics, Angles and Minus numbers.
 No build step: plain HTML, CSS and JavaScript, served by GitHub Pages. Scores go to a private Google Sheet.
 
 ## Where things are
@@ -18,7 +18,8 @@ No build step: plain HTML, CSS and JavaScript, served by GitHub Pages. Scores go
 - `index.html`, `css/app.css` — the pupil app shell and the "twilight rose" style. Fonts in `fonts/` (OFL).
 - `js/config.js` — `version` and `api` (the Apps Script web-app address; empty = scores stay on the device). Keep `V` in `sw.js` the same as `version`.
 - `js/intro.js`, `js/wordmark-data.js`, `js/fx.js` — the drawn "Anya's App" opening, sparkles, chimes.
-- `js/app.js` — screens and routes: `#/` home, `#/s/<subject>`, `#/maths/angles`, `#/maths/angles/<lesson>/<see|try|quiz>`. The lesson `plan` is "Add or take away?" (`#/maths/angles/plan/quiz`): a lesson with a `plan` list opens `Player.plan` instead of the Quiz.
+- `js/app.js` — screens and routes: `#/` home, `#/s/<subject>`, `#/maths/angles`, `#/maths/angles/<lesson>/<see|try|quiz>`. The lesson `plan` is "Add or take away?" (`#/maths/angles/plan/quiz`): a lesson with a `plan` list opens `Player.plan` instead of the Quiz. Minus numbers: `#/maths/minus`, `#/maths/minus/cheats` (the two cheats card), `#/maths/minus/<m1|m2|m3|mmix>/<see|try|quiz>`.
+- `js/minus.js` — the Minus numbers bank: every kind of sum, the checker, the slips, the help steps and the two cheats in their fixed words (runs in Node for its gate). `js/minusplay.js` — its screens (signs that join, coloured number chips, dots, warm-up taps before a quiz). Scores save under topic `minus`, lessons `m1`, `m2`, `m3`, `mmix`; the backend needed no change.
 - `js/questions.js` — the question bank, checker and slip tags. `js/diagram.js` draws every picture from numbers. `js/ring.js` draws the adding-up ring.
 - `js/lessons.js` — "See it" (drag, sort, find the twins). `js/player.js` — "Try it", the Quiz, "Add or take away?" (she picks what to do; the app does the sums) and the score screen they share. `js/store.js` — keys, saving, offline queue.
 - `admin/` — Dad's page. `backend/Code.gs` — the Apps Script. `tools/` — icon and wordmark makers, mock server, gates.
@@ -29,10 +30,12 @@ Open http://localhost:8787/?fast=1&api=http://localhost:8787/api#k=test-anya (Da
 
 ## Gates (run before every deploy)
     cd ~/Sites/anyas-app && node tools/gates/g1-questions.js
+    cd ~/Sites/anyas-app && node tools/gates/g1-minus.js
     cd ~/Sites/anyas-app && NODE_PATH=$(npm root -g) node tools/gates/walk.js walk-out 390x844 375x667 820x1180 1180x820
     cd ~/Sites/anyas-app && node tools/gates/g2-backend.js
 - G1 checks every question kind: the answer is right, the picture matches, options are sound; the add-or-take-away slips ("mixed", "added", too big) are named; every "Add or take away?" round has one right choice, true sums and a reason on each wrong choice; its planted faults must be caught.
-- The walk plays every lesson and quiz, and "Add or take away?" right and wrong, as a pupil at four screen sizes, checks nothing scrolls or spills, word limits, help steps, score saving, the offline case and Dad's page; its planted faults must be caught. Screenshots land in `walk-out/<size>/`. Look at them.
+- G1 minus works every sum a second way, checks each help step and each slip reason is true for its sum, that no help prints the answer, and that the help and the working say each cheat in its fixed words; its planted faults must be caught.
+- The walk plays every lesson and quiz, "Add or take away?" and all of Minus numbers, right and wrong, as a pupil at four screen sizes, checks nothing scrolls or spills, word limits, help steps (a sum with her numbers, the last one left as "= ?"), score saving, the offline case and Dad's page; its planted faults must be caught. Screenshots land in `walk-out/<size>/`. Look at them. It takes about 25 minutes.
 - G2 runs `backend/Code.gs` against stand-in Google services: setup, keys, saving once only, formula-safe text, Dad-only detail, the wrong-key lock. Run it whenever `Code.gs` changes.
 
 ## Deploy
@@ -56,3 +59,6 @@ Open http://localhost:8787/?fast=1&api=http://localhost:8787/api#k=test-anya (Da
 - New topic in Maths: add question kinds + lessons in `js/questions.js`, See-it activities in `js/lessons.js`, a card in `subject()` in `js/app.js`; extend G1.
 - New subject: it already has a home button and an "on its way" page; give it a topic list in `js/app.js` and its own lesson files.
 - Pupil-screen rules: job line of 14 words or fewer; 25 words of prose at most; a labelled "Stuck? Show me" that shows what to do; nothing scrolls on a work screen; every waiting button shows it is busy.
+- "Stuck? Show me" (version 4): each step is 10 words or fewer plus the sum with her own numbers; every sum is worked except the last, which ends "= ?"; the picture marks what to look at. Three steps at most.
+- A topic that needs remembering (like Minus numbers): pick the fewest rules, fix their words once in the bank, and use those exact words in the help, the reasons, the warm-up taps and the end screens.
+- Minus numbers, fixed words (in `js/minus.js` `SAY`): "Same signs make a plus. Different signs make a minus." / "Same signs: add. Different signs: take away. Bigger wins the sign." / "Cover the signs to see which is bigger." Never say a minus number "is bigger"; the gate fails any help, reason or warm-up that words a cheat another way.
