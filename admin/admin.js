@@ -25,13 +25,39 @@
     oneSign: 'Said signs touch when there was only one sign',
     missedTouch: 'Missed the two signs that touch',
     twins: 'Two minus signs: picked a minus, not a plus',
-    oddPair: 'A plus and a minus: picked a plus, not a minus'
+    oddPair: 'A plus and a minus: picked a plus, not a minus',
+    timesed: 'Multiplied in a sum with no × or ÷'
   };
+  // Times and divide has its own slips too.
+  var TIMES_SLIPS = {
+    sign: 'Right number, wrong sign',
+    added: 'Added the numbers in a times sum',
+    tables: 'Right sign, tables slip',
+    zero: 'Forgot that anything times 0 is 0',
+    oddMinus: 'Three numbers: wrong sign from the minus signs',
+    twoOnly: 'Three numbers: only multiplied two of them',
+    squareMinus: 'Square of a minus number: gave a minus answer',
+    doubled: 'Square: doubled the number instead',
+    boxSign: 'Missing number: right number, wrong sign',
+    notUndone: 'Missing number: did the sum forwards instead of finding the box',
+    notFlipped: 'Did not change the sign when the number changed side',
+    tookAway: 'Took away when the signs were the same (should add)',
+    near: 'Right sign, wrong number'
+  };
+  var BOX_ADD = { ag: 1, ah: 1, aq: 1, am: 1 };
+  function isTimes(a) { return !!a && (a.topic === 'times' || /^t(\d+|mix)$/.test(String(a.lesson || ''))); }
   function isMinus(a) { return !!a && (a.topic === 'minus' || /^m(\d+|mix)$/.test(String(a.lesson || ''))); }
-  function slipLabel(d, a) { return ((d.topic === 'minus' || isMinus(a)) ? MINUS_SLIPS[d.slip] : SLIPS[d.slip]) || 'Something else'; }
+  function slipLabel(d, a) {
+    if (d.topic === 'minus' || (!d.topic && isMinus(a))) return MINUS_SLIPS[d.slip] || 'Something else';
+    if (d.topic === 'times' || isTimes(a)) {
+      if (d.slip === 'added' && BOX_ADD[d.kind]) return MINUS_SLIPS.added;
+      return TIMES_SLIPS[d.slip] || 'Something else';
+    }
+    return SLIPS[d.slip] || 'Something else';
+  }
   function lessonName(a) {
     var t = a.lessonTitle || ('Lesson ' + a.lesson);
-    return isMinus(a) ? 'Minus numbers: ' + t : (a.lesson === 'mixed' ? 'Angles: ' + t : t);
+    return isTimes(a) ? 'Times and divide: ' + t : isMinus(a) ? 'Minus numbers: ' + t : (a.lesson === 'mixed' ? 'Angles: ' + t : t);
   }
   function show(v) { return typeof v === 'number' && v < 0 ? '−' + Math.abs(v) : v; }
   var MSG = {
@@ -148,6 +174,8 @@
     if (l === 'mixed') return 50;
     if (/^m\d+$/.test(l)) return 100 + parseInt(l.slice(1), 10);
     if (l === 'mmix') return 150;
+    if (/^t\d+$/.test(l)) return 200 + parseInt(l.slice(1), 10);
+    if (l === 'tmix') return 250;
     var n = parseInt(l, 10); return isNaN(n) ? 999 : n;
   }
 

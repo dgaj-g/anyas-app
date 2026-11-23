@@ -126,14 +126,14 @@
   const padHtml = () => `${HEAD}<div class="ans"><button class="key neg" id="neg" type="button" aria-label="Minus sign" aria-pressed="false">${sign(MN, '', { mini: true })}</button><span class="box" id="box" aria-live="polite"></span><button class="del" id="del" type="button" aria-label="Rub out">⌫</button></div>
     <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(d => `<button class="key" type="button" data-k="${d}">${d}</button>`).join('')}</div>
     <div class="duo">${STUCK}<button class="btn" id="check" type="button" disabled>Check</button></div>`;
-  function wirePad(ctl, onCheck) {
+  function wirePad(ctl, onCheck, max) {
     let v = '', neg = false, off = false;
     const box = ctl.querySelector('#box'), check = ctl.querySelector('#check'), nk = ctl.querySelector('#neg');
     const paint = () => { box.textContent = (neg ? MN : '') + v; check.disabled = !v; nk.classList.toggle('on', neg); nk.setAttribute('aria-pressed', neg ? 'true' : 'false'); };
     const press = k => {
       if (off) return;
       if (k === 'ok') { if (v) onCheck((neg ? -1 : 1) * +v); return; }
-      if (k === 'neg') neg = !neg; else if (k === 'del') { if (v) v = v.slice(0, -1); else neg = false; } else if (v.length < 2) v = (v === '0' ? '' : v) + k;
+      if (k === 'neg') neg = !neg; else if (k === 'del') { if (v) v = v.slice(0, -1); else neg = false; } else if (v.length < (max || 2)) v = (v === '0' ? '' : v) + k;
       paint(); FX.chime('tap');
     };
     ctl.onclick = e => {
@@ -357,5 +357,6 @@
     return R.stop;
   }
 
-  window.MinusPlay = { see, tryIt, quiz, cheats, CHEAT1, CHEAT2 };
+  window.MinusPlay = { see, tryIt, quiz, cheats, CHEAT1, CHEAT2,
+    kit: { sign, numTok, chip, runner, STUCK, HEAD, opt, padHtml, wirePad, want, nextBtn } };   // shared with the Times and divide screens
 })();

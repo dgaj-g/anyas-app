@@ -402,3 +402,60 @@ button.tok.sign.lit { background: #fff3d6; box-shadow: 0 0 0 4px #ffd98a; }
 @keyframes m-big { 0% { box-shadow: 0 0 0 0 rgba(255, 190, 60, 0); } 40% { box-shadow: 0 0 0 8px rgba(255, 190, 60, .95); } 100% { box-shadow: 0 0 0 5px rgba(255, 190, 60, .95); } }
 .cheat .sub.note { font-size: 16px; font-weight: 600; color: #8a6a93; }
 @media (min-width: 700px) and (min-height: 700px) { .cheat .sub.note { font-size: 20px; } }
+/* ---------- Times and divide ---------- */
+.meas { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; width: max-content; }
+.tok.op { margin: 0 .16em; color: #8a6a93; }
+.opg { display: inline-flex; align-items: center; margin: 0 .08em; }
+.tok.par { color: inherit; opacity: .7; font-weight: 600; }
+.tok.par.big { margin: 0 .03em; color: #8a6a93; opacity: 1; border-radius: .2em; }
+.tok.qbox { flex: none; box-sizing: border-box; width: .84em; height: .92em; margin: 0 .09em; border: .075em dashed #b83b8e; border-radius: .2em; background: #fff; }
+.tok.sq { align-self: flex-start; margin: .04em 0 0 .05em; font-size: .5em; color: #8a6a93; }
+.chips .grp.zero { background: #f3ecf7; border-color: #d9c8e4; color: var(--ink); }
+.chips .grp.bare { background: none; border-color: transparent; color: var(--ink); }
+.grp.fill { box-shadow: 0 0 0 4px rgba(255, 190, 60, .95); animation: m-pop .55s cubic-bezier(.3, 1.6, .5, 1); }
+.grp.ring { box-shadow: 0 0 0 4px rgba(255, 190, 60, .95); }
+.grp.landed { animation: m-pop .5s cubic-bezier(.3, 1.6, .5, 1); }
+button.grp.tapnum { justify-content: center; min-width: 48px; min-height: 48px; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; box-shadow: 0 3px 0 rgba(120, 60, 110, .22); }
+.grp.lit, button.grp.tapnum.lit { box-shadow: 0 0 0 4px #ffc83d; }
+.sumline.cover .grp, .rule.cover .grp { background: #fff; border-color: #e6d7ee; color: var(--ink); }
+.rule.cover .grp > .tok.sign { opacity: .12; }
+/* the signs on their own, and the sign they make */
+.srow { display: flex; align-items: center; justify-content: center; gap: 8px; font: 700 30px/1 Quicksand, sans-serif; }
+.srow[hidden], .dotsum[hidden] { display: none; }
+.sc { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.2em; height: 1.2em; border-radius: 50%; border: 2px solid; }
+.sc.minus { background: #ffe3ef; border-color: #f7a8c8; } .sc.plus { background: #fff3d6; border-color: #ffd98a; }
+.sc.q { background: #fff; border: 2px dashed #b83b8e; color: #b83b8e; font-size: .7em; width: 1.714em; height: 1.714em; }
+.srow .arrow { margin: 0 1px; font-size: .72em; color: #b58cc0; }
+.sc.made { background: #fff; box-shadow: 0 0 0 3px #ffc83d; }
+.sc.made.pop { animation: m-pop .55s cubic-bezier(.3, 1.6, .5, 1); }
+.pairp { position: relative; display: inline-flex; gap: 3px; padding: 3px 5px; border-radius: 999px; border: 2px dashed #d9a8c8; background: #fff; }
+.pairp.one { padding-left: 0; padding-right: 0; border-color: transparent; background: none; }
+.pbadge { position: absolute; left: 50%; top: -.95em; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 1.25em; height: 1.25em; margin-left: -.625em;
+  border-radius: 50%; background: #fff3d6; border: 2px solid #ffd98a; font-size: .52em; font-style: normal; }
+.tcard .srow:has(.pbadge) { margin-top: 9px; }
+.help .srow, .work .srow { display: inline-flex; vertical-align: middle; gap: 3px; margin: 0 3px; font-size: 18px; }
+.help .srow .pairp, .work .srow .pairp { padding: 1px 3px; gap: 2px; border-width: 1.5px; }
+.help .srow .pbadge, .work .srow .pbadge { display: none; }
+.help .srow .sc, .work .srow .sc { border-width: 1.5px; }
+.help .srow .sc.made, .work .srow .sc.made { box-shadow: 0 0 0 2px #ffc83d; }
+/* a number crossing the equals */
+.hopg { position: absolute; z-index: 3; display: block; pointer-events: none; }
+.hopg > span { position: absolute; left: 0; top: 0; display: flex; }
+.hopg .grp { margin: 0; }
+/* her own numbers, shown in the help */
+.hshow { white-space: nowrap; }
+.hchip { display: inline-block; padding: 0 7px; border-radius: 9px; border: 2px solid; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.hchip.plus { background: #fff3d6; border-color: #ffd98a; color: #8f5a00; } .hchip.minus { background: #ffe3ef; border-color: #f7a8c8; color: #b5125f; }
+.bx { display: inline-block; box-sizing: border-box; width: .84em; height: .84em; margin: 0 .1em; vertical-align: -.1em; border: 2px dashed #b83b8e; border-radius: .22em; background: #fff; }
+.btn.opt .ochips { font-size: 27px; line-height: 1.1; }
+.btn.opt.yes .ochips .grp { background: #fff; border-color: #0b7562; color: #0b7562; }
+.rule .srow { font-size: clamp(30px, 8.4vw, 40px); }
+.sumcard.rules .rule + .rule:has(.pbadge) { margin-top: 10px; }
+.tcheats .cheat .rule + .rule { margin-top: 12px; }
+.tcheats .cheat .rule:has(.pbadge) { margin-top: 18px; }
+@media (max-height: 700px) and (max-width: 699px) { .tcard .srow { font-size: 25px; gap: 6px; } .tcard .dotsum { font-size: 17px; } }
+@media (min-width: 700px) and (min-height: 700px) {
+  .tcard .srow { font-size: 42px; gap: 12px; } .tcard .dotsum { font-size: 26px; padding: 3px 18px; }
+  .btn.opt .ochips { font-size: 34px; } .rule .srow { font-size: 46px; }
+  .help .srow, .work .srow { font-size: 21px; } .hchip { padding: 0 9px; }
+}

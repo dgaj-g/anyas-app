@@ -11,7 +11,10 @@
       run: (stage, host, L, ctx) => stage === 'see' ? Lessons.see(host, L, ctx) : stage === 'try' ? Player.tryIt(host, L, ctx) : L.plan ? Player.plan(host, L, ctx) : Player.quiz(host, L, ctx) },
     minus: { title: 'Minus numbers', icon: '<b class="minusico">−</b>', blurb: '3 lessons and a mixed quiz', lessons: Minus.LESSONS, find: Minus.lesson, stages: l => l.stages, num: l => l.num,
       run: (stage, host, L, ctx) => MinusPlay[stage === 'try' ? 'tryIt' : stage](host, L, ctx),
-      extra: '<a class="btn soft cheatlink" href="#/maths/minus/cheats">See the two cheats</a>' } };
+      extra: '<a class="btn soft cheatlink" href="#/maths/minus/cheats">See the two cheats</a>' },
+    times: { title: 'Times and divide', icon: '<b class="minusico">×</b>', blurb: '5 lessons and a mixed quiz', lessons: Times.LESSONS, find: Times.lesson, stages: l => l.stages, num: l => l.num,
+      run: (stage, host, L, ctx) => TimesPlay[stage === 'try' ? 'tryIt' : stage](host, L, ctx),
+      extra: '<a class="btn soft cheatlink" href="#/maths/times/cheats">See the cheats</a>' } };
   const topic = id => Object.prototype.hasOwnProperty.call(TOPICS, id) ? TOPICS[id] : null;
   const base = tid => '#/maths/' + tid, key = tid => 'maths.' + tid + '.';
   let stop = null, started = false;
@@ -102,6 +105,7 @@
     if (p[0] === 's') return subject(p[1]);
     if (p[0] === 'maths' && topic(p[1])) {
       if (p[1] === 'minus' && p[2] === 'cheats') return show(MinusPlay.cheats());
+      if (p[1] === 'times' && p[2] === 'cheats') return show(TimesPlay.cheats());
       return p[2] ? lesson(p[1], p[2], p[3]) : map(p[1]);
     }
     home();

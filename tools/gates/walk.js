@@ -25,7 +25,9 @@ function fitCheck(o) {            // runs inside the page
   all('button, a, .job, .sub, .verdict, h1, .lead, .score, .savenote').forEach(el => {
     const r = el.getBoundingClientRect(), name = (el.id ? '#' + el.id : '.' + String(el.className).split(' ').join('.')) + ' "' + el.textContent.trim().slice(0, 26) + '"';
     if (el.scrollWidth > el.clientWidth + 1) out.push('words spill sideways: ' + name);
-    if (el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1) out.push('words spill down: ' + name);
+    // a number button in the sum holds one line of big digits: judge it by where its pieces really sit, because the browser counts the font's empty space as overflow
+    const down = el.classList.contains('tapnum') ? [...el.children].some(k => { const q = k.getBoundingClientRect(); return q.height > 0 && (q.bottom > r.bottom + 1 || q.top < r.top - 1); }) : el.scrollHeight > el.clientHeight + 1;
+    if (el.clientHeight > 0 && down) out.push('words spill down: ' + name);
     if (r.left < -1 || r.right > vw + 1) out.push('off the side of the screen: ' + name);
     if ((el.tagName === 'BUTTON' || el.tagName === 'A') && (r.height < 43.5 || r.width < 43.5)) out.push(`small tap target (${Math.round(r.width)}x${Math.round(r.height)}): ` + name);
   });
@@ -343,7 +345,7 @@ async function minus(first) {
   const p = S.page;
   await section('minus-list', async () => {
     await p.evaluate(() => { location.hash = '#/s/maths'; }); await stop('minus-maths', { wait: 900 });
-    must((await p.$$eval('a.card', e => e.map(x => x.getAttribute('href')).join(','))) === '#/maths/angles,#/maths/minus', 'the Maths page does not list Angles then Minus numbers');
+    must((await p.$$eval('a.card', e => e.map(x => x.getAttribute('href')).join(','))) === '#/maths/angles,#/maths/minus,#/maths/times', 'the Maths page does not list Angles, Minus numbers, then Times and divide');
     await tap('a.card[href="#/maths/minus"]'); await stop('minus-lessons', { wait: 1100 });
     must((await p.$$eval('a.card', e => e.length)) === 4, 'Minus numbers does not show four lessons');
     await tap('a.cheatlink'); await stop('minus-cheats', { wait: 700, long: true });
@@ -358,6 +360,162 @@ async function minus(first) {
     await minusStage('m2', 'quiz', 'wrong', true); await minusStage('m1', 'quiz', 'wrong', first);
     for (const id of ['m1', 'm2']) must((await p.evaluate(k => Store.stars(k), 'maths.minus.' + id)) === 3, `Minus ${id}: stars were taken away by a worse quiz`);
     await p.evaluate(() => { location.hash = '#/maths/minus'; }); await stop('minus-lessons-after', { wait: 1100 });
+  });
+}
+
+/* ---------- Times and divide ---------- */
+const TIMES_N = { t1: 10, t2: 8, t3: 8, t4: 8, t5: 8, tmix: 12 };
+const TIMES_SAY = ['Same signs make a plus. Different signs make a minus.', 'Cover the signs. Times the numbers.', 'Cover the signs. Divide the numbers.', 'Pair up the minus signs. A pair makes a plus.',
+  'One left over makes a minus.', 'The answer is minus, so the signs are different.', 'The answer is plus, so the signs are the same.', 'Change side, change sign.', 'Do the brackets first.'];
+const tfam = k => (/^add:/.test(k) ? 'add' : /^xb/.test(k) ? 'xb' : k === 'x0' ? 'x0' : /^x/.test(k) ? 'x' : /^d/.test(k) ? 'd' : /^3/.test(k) ? '3' : /^bt/.test(k) ? 'bt' : /^bd/.test(k) ? 'bd' : /^a[ghqm]$/.test(k) ? 'ba' : k);
+/* The walker works every sum out for itself, from the words on the screen. */
+const tcalc = t => { try { return Function('"use strict"; return (' + t.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/').replace(/²/g, '**2').replace(/\(\+/g, '(') + ');')(); } catch (e) { return NaN; } };
+function tsolve(text) {
+  if (text.indexOf('□') < 0) return tcalc(text);
+  const side = text.split('='), hits = [];
+  for (let b = -200; b <= 200; b++) { const f = x => tcalc(x.replace(/□/g, '(' + b + ')')); if (Math.abs(f(side[0]) - f(side[1])) < 1e-9) hits.push(b); }
+  return hits.length === 1 ? hits[0] : NaN;
+}
+const tstate = () => S.page.evaluate(() => ({ q: window.__q, a: window.__answer, job: (document.querySelector('#job') || {}).textContent || '', next: !!document.querySelector('#next'), score: !!document.querySelector('.score') }));
+const tsig = s => JSON.stringify([s.q, s.job, s.next, s.score]);
+const tchange = (s, ms) => S.page.waitForFunction(old => { const j = document.querySelector('#job');
+  return JSON.stringify([window.__q, (j || {}).textContent || '', !!document.querySelector('#next'), !!document.querySelector('.score')]) !== old; }, { timeout: ms || 8000 }, tsig(s)).catch(() => {});
+const tgo = async h => { await S.page.evaluate(() => { location.hash = '#/maths/times'; }); await sleep(180); await S.page.evaluate(x => { location.hash = x; }, h); await sleep(280); };
+const tbad = () => S.page.evaluate(() => { const s = document.querySelector('#say'); return s && /bad/.test(s.className) ? s.textContent.trim() : ''; });
+const thelp = () => S.page.evaluate(() => { const h = document.querySelector('#help'); return { open: !!h && !h.hidden, steps: h ? h.querySelectorAll('li').length : 0, sums: h ? [...h.querySelectorAll('.sum')].map(e => e.textContent.trim()) : [] }; });
+const tflat = t => String(t || '').replace(/□/g, '').replace(/\s+/g, ' ').trim();
+/* What the screen must say once a typed answer is in. Used in the walk AND against a planted fault. */
+async function timesMarked(q, a, given) {
+  const v = await txt('.verdict'), out = [], head = given === a ? 'Yes! ' : 'Not this time. ';
+  if (v.indexOf(head.trim()) !== 0) out.push(`times ${q.lesson} "${q.text}": the answer ${given} was marked the wrong way ("${v}")`);
+  if (tflat(v) !== tflat(head + q.full)) out.push(`times ${q.lesson} "${q.text}": the answer line is "${v}", wanted "${head}${q.full}"`);
+  if (String(q.full || '').indexOf(mnum(a)) < 0) out.push(`times ${q.lesson} "${q.text}": the whole sum "${q.full}" does not show ${mnum(a)}`);
+  return out;
+}
+/* Plays one stage of one lesson. mode 'wrong' answers every quiz question wrongly. */
+async function timesStage(id, st, mode, look) {
+  const before = (await server('/__attempts')).length, seen = {}, name = `times-${id}-${st}`, bad = mode === 'wrong' && st === 'quiz', helpedAt = {}; let asked = 0, warm = 0, ended = false, shown3 = false;
+  await tgo(`#/maths/times/${id}/${st}`);
+  for (let k = 0; k < 300; k++) {
+    if (await S.page.$('.score')) break;
+    const s = await tstate(), q = s.q, a = s.a;
+    if (st === 'try' && q && q.lesson === id && q.stage === 'quiz') { ended = true; break; }   // "Start the quiz" ends Try it
+    if (!must(q && q.topic === 'times' && q.lesson === id && q.stage === st, `${name}: this is not the screen for this lesson (${JSON.stringify(q || {}).slice(0, 90)})`)) return;
+    if (q.mode === 'done') { ended = true; break; }
+    const fam = tfam(q.kind || ''), key = fam + '|' + q.mode + '|' + s.job, first = !seen[key], tag = `${name}-${fam}-${q.mode}`; seen[key] = 1;
+    const pic = async (end, o) => { if (look && first) await stop(tag + (end ? '-' + end : '') + '-' + Object.keys(seen).length, Object.assign({ noScroll: true }, o)); };
+    const help = async () => {                                   // open "Stuck? Show me" and check it shows something
+      if (!(await S.page.$('#stuck:not([hidden])'))) return;
+      if (!(await thelp()).open) await tap('#stuck');
+      await sleep(260); const h = await thelp();
+      must(h.open && h.steps >= 1, `${name} ${fam} ${q.mode}: "Stuck? Show me" shows no steps`);
+      if (q.mode === 'pad') must(h.sums.some(x => /\?/.test(x)), `${name} ${fam}: the help does not leave a sum for her (${h.sums.join(' ; ')})`);
+      if (q.mode === 'pad' && h.sums.length) { const last = h.sums[h.sums.length - 1];   // "36 ÷ ? = 6" keeps the answer back even when the answer is also 6
+        must(/\?/.test(last) || !last.endsWith('= ' + mnum(a)), `${name} ${fam}: the help gives the answer away`); }
+      await pic('help');
+    };
+    if (q.mode === 'watch') { await tchange(s, 25000); continue; }
+    if (q.mode === 'next' && st === 'see') {                      // See it: the whole sum, then on
+      await S.page.waitForSelector('#next', { visible: true, timeout: 6000 }); await pic('whole', { wait: 500 });
+      must(tflat(await txt('.verdict')) === tflat(q.full), `${name} "${q.text}": the whole sum shown is "${await txt('.verdict')}", wanted "${q.full}"`);
+      await tap('#next'); await tchange(s); continue;
+    }
+    if (q.mode === 'next') { await tap('#next'); await tchange(s); continue; }
+    if (q.text && q.mode !== 'warm') must(tsolve(q.text) === (q.mode === 'pad' ? a : tsolve(q.text)) && !Number.isNaN(tsolve(q.text)), `${name} "${q.text}": the app's answer is ${a}, the walker makes it ${tsolve(q.text)}`);
+    if (q.mode === 'pick' || q.mode === 'warm') {
+      const opts = await S.page.$$eval('#ctl [data-v]', e => e.map(x => x.dataset.v)), other = opts.find(v => v !== String(a));
+      if (!must(opts.indexOf(String(a)) >= 0, `${name} ${fam}: no button for the right choice "${a}" (${opts.join(',')})`)) return;
+      await pic('');
+      if (q.mode === 'pick' && st === 'try' && first) {          // a wrong tap in Try it gets its reason, and she goes again
+        await tap(`#ctl [data-v="${other}"]`); await sleep(320);
+        must((await tbad()).length > 8, `${name} ${fam} pick: a wrong tap got no reason`); await pic('wrong');
+      }
+      if (q.mode === 'pick' && first) await help();
+      await tap(`#ctl [data-v="${a}"]`);
+      if (q.mode === 'warm') { warm++; await sleep(200); await pic('after', { wait: 300 }); }
+      await tchange(s, 9000);
+    } else if (q.mode === 'tap-all' || q.mode === 'tap-one') {
+      const all = q.mode === 'tap-all', attr = all ? 'data-i' : 'data-t', want = (all ? a : [a]).map(String);
+      const have = await S.page.$$eval('#line button.tapnum', (e, at) => e.map(x => x.getAttribute(at)), attr);
+      if (!must(want.every(w => have.indexOf(w) >= 0), `${name} ${fam}: the sum has no number to tap for ${want.join(',')} (${have.join(',')})`)) return;
+      await pic('');
+      const wrong = have.find(v => want.indexOf(v) < 0);
+      if (first && wrong != null) { await tap(`#line button.tapnum[${attr}="${wrong}"]`); await sleep(320); must((await tbad()).length > 8, `${name} ${fam} tap: a wrong tap got no reason`); await pic('wrong'); }
+      if (first) await help();
+      for (const w of want) { await tap(`#line button.tapnum[${attr}="${w}"]`); await sleep(90); }
+      await tchange(s, 9000);
+    } else if (q.mode === 'mid') {                                // the brackets: she types what they make
+      await pic('');
+      if (first) { await mtype(a + 1); await sleep(320); must((await tbad()).length > 8, `${name} ${fam} brackets: a wrong answer got no reason`); await help(); }
+      await mtype(a); await tchange(s, 9000);
+    } else if (q.mode === 'pad') {
+      must(tsolve(q.text) === a, `${name} "${q.text}": the app's answer is ${a}, the walker makes it ${tsolve(q.text)}`);
+      const wrongOne = a === 0 ? 1 : -a;
+      await pic('');
+      if (st === 'try' && first) {                               // two wrong answers: each gets its reason, then the help opens by itself
+        await mtype(wrongOne); await sleep(300); must((await tbad()).length > 8, `${name} ${fam}: a wrong answer got no reason`);
+        await mtype(wrongOne); await sleep(300); must((await thelp()).open, `${name} ${fam}: help did not open after two wrong answers`); await help();
+      } else if (st === 'try' && !shown3) {                      // three wrong answers: she is shown the answer
+        shown3 = true; for (let j = 0; j < 3; j++) { await mtype(wrongOne); await sleep(260); }
+        await S.page.waitForSelector('#next', { visible: true, timeout: 5000 });
+        (await timesMarked(q, a, wrongOne)).forEach(m => must(false, m));
+        if (look) await stop(`${tag}-shown-after-3`, { noScroll: true, wait: 600 });
+        asked++; await tap('#next'); await tchange(await tstate().then(x => Object.assign(x, { next: true }))); await sleep(120); continue;   // wait as the right-answer path does: the last Try it sum leaves by a fade
+      } else if (st === 'quiz' && first) { await help(); helpedAt[q.i] = 1; }
+      const given = bad ? wrongOne : a;
+      await mtype(given); await S.page.waitForSelector('#next', { visible: true, timeout: 5000 });
+      (await timesMarked(q, a, given)).forEach(m => must(false, m));
+      if (given !== a) must((await txt('#ctl .sub')).length > 8, `${name} "${q.text}": a wrong answer got no reason`);
+      must((await S.page.$$('#ctl .work li')).length >= 1, `${name}: no working is shown after the answer`);
+      if (look && first) await stop(`${tag}-fb-${mode}-${Object.keys(seen).length}`, { noScroll: true, wait: 600 });
+      asked++; await tap('#next'); await tchange(await tstate().then(x => Object.assign(x, { next: true })));
+    } else { must(false, `${name}: the walker does not know the step "${q.mode}"`); return; }
+    await sleep(120);
+  }
+  if (st !== 'quiz') {
+    must(ended, `${name}: the stage never reached its end screen`);
+    if (st === 'try') { must(/\/quiz$/.test(await hash()), `${name}: "Start the quiz" did not open the quiz`); return; }
+    await stop(`${name}-end`, { noScroll: true, wait: 500 });
+    must(await S.page.$(`#app a[href$="/${id}/try"]`), `${name}: the end screen has no button to Try it`);
+    return;
+  }
+  await S.page.waitForSelector('.score', { visible: true, timeout: 5000 });
+  await S.page.waitForFunction(() => { const e = document.querySelector('#save'); return e && !/Saving/.test(e.textContent); }, { timeout: 15000 });
+  const n = TIMES_N[id], want = bad ? 0 : n;
+  must(asked === n, `${name}: ${asked} questions were asked, wanted ${n}`); must(warm === 2, `${name}: ${warm} warm up taps, wanted 2`);
+  must((await txt('.score')) === `${want} out of ${n}`, `${name}: score line says "${await txt('.score')}", wanted ${want} out of ${n}`);
+  must((await txt('#save')) === 'Score saved.', `${name}: note says "${await txt('#save')}"`);
+  must(await S.page.$('.result a[href="#/maths/times"]'), `${name}: the score screen has no way back to the lessons`);
+  await stop(`${name}-result-${mode}`, { long: true, wait: 700 });
+  const list = await server('/__attempts'), at = list[list.length - 1];
+  must(list.length === before + 1 && at && at.topic === 'times' && at.lesson === id && at.score === want && at.total === n && at.detail.length === n
+    && at.detail.every(d => d.topic === 'times' || (id === 'tmix' && d.topic === 'minus')), `${name}: the sheet did not get the attempt (${JSON.stringify(at || {}).slice(0, 140)})`);
+  if (at && at.detail.length === n) must(at.detail.every((d, i) => d.helped === !!helpedAt[i]), `${name}: "helped" was not recorded for the right questions`);
+  if (at && bad) {
+    must(at.detail.every(d => d.right === false && d.slip), `${name}: wrong answers have no slip tag`);
+    must((await S.page.$$('.review li')).length === n, `${name}: the "look at these again" list does not have ${n} sums`);
+  }
+}
+async function times(first) {
+  const p = S.page;
+  await section('times-list', async () => {
+    await p.evaluate(() => { location.hash = '#/s/maths'; }); await stop('times-maths', { wait: 900 });
+    await tap('a.card[href="#/maths/times"]'); await stop('times-lessons', { wait: 1100 });
+    must((await p.$$eval('a.card', e => e.length)) === 6, 'Times and divide does not show six lessons');
+    await tap('a.cheatlink'); await stop('times-cheats', { wait: 700, long: true });
+    await p.screenshot({ path: path.join(S.dir, 'times-cheats-whole.png'), fullPage: true });
+    const body = await p.evaluate(() => document.querySelector('#app').innerText.replace(/\s+/g, ' '));
+    TIMES_SAY.forEach(c => must(body.indexOf(c) >= 0, `the times cheats page does not say "${c}"`));
+    must(await p.$('#app a[href="#/maths/times"]'), 'the times cheats page has no way back to the lessons');
+  });
+  const all = ['t1', 't2', 't3', 't4', 't5'];
+  for (const id of all) for (const st of ['see', 'try', 'quiz']) await section(`times-${id}-${st}`, () => timesStage(id, st, 'right', true));
+  await section('times-tmix-quiz', () => timesStage('tmix', 'quiz', 'right', true));
+  await section('times-stars', async () => {
+    for (const id of all.concat('tmix')) must((await p.evaluate(k => Store.stars(k), 'maths.times.' + id)) === 3, `Times ${id}: a clean quiz did not earn 3 stars`);
+    await timesStage('t4', 'quiz', 'wrong', true); await timesStage('tmix', 'quiz', 'wrong', first);
+    for (const id of ['t4', 'tmix']) must((await p.evaluate(k => Store.stars(k), 'maths.times.' + id)) === 3, `Times ${id}: stars were taken away by a worse quiz`);
+    await p.evaluate(() => { location.hash = '#/maths/times'; }); await stop('times-lessons-after', { wait: 1100 });
   });
 }
 
@@ -393,6 +551,10 @@ async function dad(browser, w, h, name) {
 
 async function walk(browser, w, h, first) {
   S.tag = `${w}x${h}`; S.dir = path.join(OUT, S.tag); S.n = 0; S.prose = 0; S.seed = 20 + w; fs.mkdirSync(S.dir, { recursive: true });
+  if (process.env.ONLY === 'times') {
+    const t = await open(browser, w, h, appUrl('#k=test-anya')); await t.waitForSelector('.subjects', { visible: true, timeout: 8000 }); await sleep(700);
+    await times(first); await t.close(); notes.push(`[${S.tag}] ${S.n} screens looked at; most reading on one work screen: ${S.prose} words`); return;
+  }
   if (first) await keys(browser, w, h);
   const p = await open(browser, w, h, appUrl('#k=test-anya'));
   await section('home', async () => {
@@ -439,7 +601,7 @@ async function walk(browser, w, h, first) {
       must((await q.evaluate(() => Store.stars('maths.angles.1'))) === 3, 'a new device did not get her stars from the sheet'); await q.close(); S.page = p;
     });
   } else await section('mixed', () => quiz('mixed', 'right', true));
-  S.page = p; await minus(first);
+  S.page = p; await minus(first); await times(first);
   await p.close();
   if (first || w > 1000) await dad(browser, w, h, S.tag);
   notes.push(`[${S.tag}] ${S.n} screens looked at; most reading on one work screen: ${S.prose} words`);
@@ -465,7 +627,7 @@ async function controls(browser) {   // the checker must catch planted faults, o
     if (r.out.some(m => m.indexOf(want) >= 0)) caught++; else fails.push(`CONTROL NOT CAUGHT: ${want}`);
   }
   // Minus numbers: a long help step on a minus screen, and a wrong answer that the app marks right
-  const total = plant.length + 2;
+  const total = plant.length + 5;
   await p.goto(`${BASE}/?fast=1&seed=7#/maths/minus/m2/try`, { waitUntil: 'load' }); await p.reload({ waitUntil: 'load' }); await p.waitForSelector('#ctl [data-v]', { visible: true, timeout: 8000 });
   await p.evaluate(() => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li><span class="say">Look at both of the numbers and decide if their signs are the same or not.</span></li></ol>'; });
   if ((await p.evaluate(fitCheck, { noScroll: true })).out.some(m => m.indexOf('help step over 10 words') >= 0)) caught++; else fails.push('CONTROL NOT CAUGHT: a long help step on a minus screen');
@@ -479,6 +641,23 @@ async function controls(browser) {   // the checker must catch planted faults, o
     break;
   }
   if (hit) caught++; else fails.push('CONTROL NOT CAUGHT: a wrong minus answer marked right');
+  // Times and divide: a long help step, and a wrong answer that the app marks right
+  await p.goto(`${BASE}/?fast=1&seed=7#/maths/times`, { waitUntil: 'load' }); await p.evaluate(() => { location.hash = '#/maths/times/t1/try'; }); await p.waitForSelector('#ctl [data-v]', { visible: true, timeout: 8000 });
+  await p.evaluate(() => { const h = document.querySelector('#help'); h.hidden = false; h.innerHTML = '<ol><li><span class="say">Look at both of the numbers and decide if their signs are the same or not.</span></li></ol>'; });
+  if ((await p.evaluate(fitCheck, { noScroll: true })).out.some(m => m.indexOf('help step over 10 words') >= 0)) caught++; else fails.push('CONTROL NOT CAUGHT: a long help step on a times screen');
+  await p.evaluate(() => { location.hash = '#/maths/times/t3/see'; }); await p.waitForSelector('#line button.tapnum', { visible: true, timeout: 8000 });
+  await p.evaluate(() => { const b = document.querySelector('#line button.tapnum'); b.style.cssText = 'height:30px;min-height:0'; });
+  if ((await p.evaluate(fitCheck, { noScroll: true })).out.some(m => m.indexOf('words spill down') >= 0 && m.indexOf('tapnum') >= 0)) caught++; else fails.push('CONTROL NOT CAUGHT: a number button too short for its digits');
+  await p.evaluate(() => { location.hash = '#/maths/times'; }); await sleep(200); await p.evaluate(() => { Times.judge = () => ({ right: true, slip: '', say: '' }); });
+  await p.evaluate(() => { location.hash = '#/maths/times/t1/quiz'; }); await sleep(300);
+  let thit = false;
+  for (let k = 0; k < 12 && !thit; k++) {
+    const st = await tstate(), q = st.q, a = st.a; if (!q) break;
+    if (q.mode === 'warm') { await tap(`#ctl [data-v="${a}"]`); await tchange(st, 6000); continue; }
+    if (q.mode === 'pad') { const g = a === 0 ? 1 : -a; await mtype(g); await p.waitForSelector('#next', { visible: true, timeout: 5000 }); thit = (await timesMarked(q, a, g)).some(m => /marked the wrong way/.test(m)); break; }
+    break;
+  }
+  if (thit) caught++; else fails.push('CONTROL NOT CAUGHT: a wrong times answer marked right');
   await p.close(); notes.push(`controls caught: ${caught} of ${total}`);
 }
 
@@ -486,7 +665,7 @@ async function controls(browser) {   // the checker must catch planted faults, o
   fs.mkdirSync(OUT, { recursive: true }); await server('/__reset', 'POST');
   const browser = await puppeteer.launch({ headless: 'shell' });
   try {
-    await controls(browser);
+    if (!process.env.ONLY) await controls(browser);
     for (let i = 0; i < SIZES.length; i++) await walk(browser, SIZES[i][0], SIZES[i][1], i === 0);
   } finally { await browser.close(); }
   const uniq = [...new Set(fails)], text = [`WALK ${uniq.length ? 'FAILED' : 'PASSED'}: ${uniq.length} faults`, ...uniq, '', ...notes].join('\n');

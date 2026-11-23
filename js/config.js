@@ -1,7 +1,7 @@
 /* The ONE place for the version and the score-sheet address.
    api: the Apps Script web app address (ends in /exec). Empty = scores stay on the device.
    When you change `version`, change V in sw.js to match. */
-window.CONFIG = { version: "4", api: "https://script.google.com/macros/s/AKfycbw2b5GT-bvSXrceAkro5dw1XKZA5y7rJ2I5e31KMUW7fEyJHwvdOsXhRDgDC8lK7ixTXQ/exec" };
+window.CONFIG = { version: "5", api: "https://script.google.com/macros/s/AKfycbw2b5GT-bvSXrceAkro5dw1XKZA5y7rJ2I5e31KMUW7fEyJHwvdOsXhRDgDC8lK7ixTXQ/exec" };
 (function () {
   var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var p = new URLSearchParams(location.search);
