@@ -395,9 +395,11 @@ button.tok.sign.lit { background: #fff3d6; box-shadow: 0 0 0 4px #ffd98a; }
 @media (min-width: 700px) and (min-height: 700px) { .rule:not(.chips) { font-size: 76px; } }
 @media (min-width: 900px) and (orientation: landscape) { .cheats .rule:not(.chips) { font-size: 62px; } }
 
-/* Cover the signs: both signs fade, the bigger number is ringed, then its own sign comes back */
-.sumline.cover .grp > .tok.sign { opacity: .12; }
-.sumline.cover .grp.win > .tok.sign { opacity: 1; }
+/* Cover the signs: a strip of tape lands on each sign (never a faded sign: that reads as a fault), the bigger number is ringed, then its own sign comes back */
+.sumline.cover .grp:not(.win) > .tok.sign::before, .rule.cover .grp > .tok.sign::before { width: .56em; height: .76em; margin: -.38em 0 0 -.28em; border-radius: .13em; background: repeating-linear-gradient(135deg, #cfa9e6 0 .09em, #a874c9 .09em .18em); box-shadow: 0 .04em .09em rgba(59, 26, 74, .4); transform: rotate(-7deg); animation: m-stick .45s cubic-bezier(.3, 1.5, .5, 1) both; }
+.sumline.cover .grp:not(.win) > .tok.sign.plus::after, .rule.cover .grp > .tok.sign.plus::after { opacity: 0; }
+.sumline.cover .grp.win > .tok.sign { animation: m-pop .55s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes m-stick { 0% { opacity: 0; transform: rotate(-7deg) scale(1.5); } 100% { opacity: 1; transform: rotate(-7deg) scale(1); } }
 .sumline.cover .grp.big { box-shadow: 0 0 0 5px rgba(255, 190, 60, .95); animation: m-big 1.2s ease-in-out 1 both; }
 @keyframes m-big { 0% { box-shadow: 0 0 0 0 rgba(255, 190, 60, 0); } 40% { box-shadow: 0 0 0 8px rgba(255, 190, 60, .95); } 100% { box-shadow: 0 0 0 5px rgba(255, 190, 60, .95); } }
 .cheat .sub.note { font-size: 16px; font-weight: 600; color: #8a6a93; }
@@ -418,7 +420,6 @@ button.tok.sign.lit { background: #fff3d6; box-shadow: 0 0 0 4px #ffd98a; }
 button.grp.tapnum { justify-content: center; min-width: 48px; min-height: 48px; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; box-shadow: 0 3px 0 rgba(120, 60, 110, .22); }
 .grp.lit, button.grp.tapnum.lit { box-shadow: 0 0 0 4px #ffc83d; }
 .sumline.cover .grp, .rule.cover .grp { background: #fff; border-color: #e6d7ee; color: var(--ink); }
-.rule.cover .grp > .tok.sign { opacity: .12; }
 /* the signs on their own, and the sign they make */
 .srow { display: flex; align-items: center; justify-content: center; gap: 8px; font: 700 30px/1 Quicksand, sans-serif; }
 .srow[hidden], .dotsum[hidden] { display: none; }

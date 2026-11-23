@@ -81,7 +81,7 @@
     if (!sel) return;
     ui.line.querySelectorAll(sel).forEach(el => { el.classList.remove('mark'); void el.offsetWidth; el.classList.add('mark'); });
   }
-  /* "Cover the signs": both signs fade and ONLY the bigger number is ringed (any older ring is cleared first) and the ring stays.
+  /* "Cover the signs": a strip of tape covers each sign and ONLY the bigger number is ringed (any older ring is cleared first) and the ring stays.
      With `back` (ms) its own sign then comes back: bigger wins the sign. */
   function cover(R, ui, q, back) {
     const which = q.terms[0].n > q.terms[1].n ? 'ga' : 'gb', g = ui.line.querySelector('.' + which);
