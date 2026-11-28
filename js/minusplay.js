@@ -81,13 +81,28 @@
     if (!sel) return;
     ui.line.querySelectorAll(sel).forEach(el => { el.classList.remove('mark'); void el.offsetWidth; el.classList.add('mark'); });
   }
-  /* "Cover the signs": a strip of tape covers each sign and ONLY the bigger number is ringed (any older ring is cleared first) and the ring stays.
-     With `back` (ms) its own sign then comes back: bigger wins the sign. */
+  /* Tape lands on ONE sign at a time, on top of the sign, so she can watch each sign being covered.
+     Gives back how long that takes (ms): nothing else should move until then. */
+  const TAPE = { lead: 600, each: 850, land: 750 };
+  function tape(R, line) {
+    const gs = Array.from(line.querySelectorAll('.grp')).filter(g => g.querySelector(':scope > .tok.sign'));
+    gs.forEach((g, i) => R.later(() => {
+      const s = g.querySelector(':scope > .tok.sign');
+      if (!s || !g.isConnected || !line.classList.contains('cover') || s.querySelector('.tape')) return;
+      s.insertAdjacentHTML('beforeend', '<i class="tape" aria-hidden="true"></i>'); FX.chime('place');
+    }, TAPE.lead + i * TAPE.each));
+    return gs.length ? TAPE.lead + (gs.length - 1) * TAPE.each + TAPE.land : 0;
+  }
+  /* "Cover the signs": tape covers each sign in turn, THEN only the bigger number is ringed (any older ring is cleared first) and the ring stays.
+     With `back` (ms after the ring) its own sign then comes back: bigger wins the sign. Gives back how long it all takes (ms). */
   function cover(R, ui, q, back) {
     const which = q.terms[0].n > q.terms[1].n ? 'ga' : 'gb', g = ui.line.querySelector('.' + which);
     ui.line.querySelectorAll('.mark, .big').forEach(el => el.classList.remove('mark', 'big'));
-    ui.line.classList.add('cover'); mark(ui, which); if (g) g.classList.add('big');
-    if (back && g) R.later(() => g.classList.add('win'), back);
+    ui.line.classList.add('cover');
+    const t = tape(R, ui.line) + 300;
+    R.later(() => { if (!g || !g.isConnected || !ui.line.classList.contains('cover')) return; mark(ui, which); g.classList.add('big'); }, t);
+    if (back && g) R.later(() => { if (g.isConnected) g.classList.add('win'); }, t + back);
+    return t + (back || 0);
   }
   const say = (ui, text, bad) => { const s = ui.ctl.querySelector('#say'); if (s) { s.textContent = text; s.className = 'sub ' + (bad ? 'bad' : 'good'); } };
   function showHelp(ui, steps) {
@@ -324,8 +339,9 @@
         wrong: () => ({ slip: 'warm', say: w.why }),
         done: () => {
           say(ui, w.why);
-          if (idx < 2) merge(R, ui, q); else if (idx < 4) settleDots(ui, q); else cover(R, ui, q, idx === 4 ? 900 : 0);
-          R.later(() => warmUp(k + 1), idx === 4 ? 2400 : 1500);
+          let t = 0;
+          if (idx < 2) merge(R, ui, q); else if (idx < 4) settleDots(ui, q); else t = cover(R, ui, q, idx === 4 ? 1400 : 0);
+          R.later(() => warmUp(k + 1), t ? t + 2200 : 1500);                 // after the last move, time to look at it
         } });
     };
     const ask = () => {
@@ -358,5 +374,5 @@
   }
 
   window.MinusPlay = { see, tryIt, quiz, cheats, CHEAT1, CHEAT2,
-    kit: { sign, numTok, chip, runner, STUCK, HEAD, opt, padHtml, wirePad, want, nextBtn } };   // shared with the Times and divide screens
+    kit: { sign, numTok, chip, runner, STUCK, HEAD, opt, padHtml, wirePad, want, nextBtn, tape } };   // shared with the Times and divide screens
 })();

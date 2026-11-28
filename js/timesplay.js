@@ -5,6 +5,10 @@
 (function () {
   'use strict';
   const T = window.Times, CONFIG = window.CONFIG, FX = window.FX, kit = window.Player.kit, MK = window.MinusPlay.kit;
+  /* How long a line stays before the next thing happens (ms), counted from the END of any move. One thing moves at a time,
+     then she gets time to read it. see/tryIt: after her own step. watch: each step she watches. last: the finished sum, before
+     the Next button. warm: after a warm-up answer. hop: a number crossing the equals. sum: the pause before the small sum. */
+  const PACE = { see: 2200, tryIt: 1800, watch: 2800, last: 2000, warm: 2600, hop: 1500, sum: 450 };
   const { esc, newSeed, reshake, dots } = kit;
   const { sign, runner, STUCK, HEAD, opt, padHtml, wirePad, want, nextBtn } = MK;
   const SAY = T.SAY, MN = T.M, BACK = '#/maths/times';
@@ -108,7 +112,7 @@
   const hook = (L, stage, mode, q, i, n) => { if (CONFIG.local) window.__q = { topic: 'times', lesson: L.id, stage, mode, kind: q && q.kind, text: q && q.text, full: q && q.full, i, n }; };
 
   /* ---------- what the picture can do ---------- */
-  function setLine(ui, toks, o) { ui.toks = toks; ui.line.innerHTML = lineHtml(toks, o); ui.line.classList.remove('cover'); }
+  function setLine(ui, toks, o) { ui.toks = toks; ui.line.innerHTML = lineHtml(toks, o); ui.line.classList.remove('cover', 'sback'); }
   function mark(ui, ids) {
     ui.line.querySelectorAll('.mark').forEach(el => el.classList.remove('mark'));
     ids.forEach(id => ui.line.querySelectorAll(`[data-id="${id}"]`).forEach(el => { void el.offsetWidth; el.classList.add('mark'); }));
@@ -127,7 +131,7 @@
     g.style.cssText = `left:${x0}px;top:${y0}px;font-size:${getComputedStyle(ui.line).fontSize}`;
     g.innerHTML = `<span>${oldHtml}</span><span>${now.outerHTML}</span>`;
     ui.pic.appendChild(g); now.style.visibility = 'hidden';
-    const dx = to.left - from.left, dy = to.top - from.top, lift = -Math.max(8, Math.min(y0 - 4, from.height * .6)), ms = 760, opts = { duration: ms, fill: 'forwards' };
+    const dx = to.left - from.left, dy = to.top - from.top, lift = -Math.max(8, Math.min(y0 - 4, from.height * .6)), ms = PACE.hop, opts = { duration: ms, fill: 'forwards' };
     g.animate([{ transform: 'translate(0, 0)' }, { transform: `translate(${dx / 2}px, ${dy / 2 + lift}px)` }, { transform: `translate(${dx}px, ${dy}px)` }], { duration: ms, easing: 'ease-in-out', fill: 'forwards' });
     g.firstChild.animate([{ opacity: 1 }, { opacity: 1, offset: .4 }, { opacity: 0, offset: .6 }, { opacity: 0 }], opts);
     g.lastChild.animate([{ opacity: 0 }, { opacity: 0, offset: .4 }, { opacity: 1, offset: .6 }, { opacity: 1 }], opts);
@@ -135,20 +139,31 @@
     R.later(() => { g.remove(); now.style.visibility = ''; now.classList.add('landed'); }, ms + 20);
   }
   /* After a step the picture may: show a new line (a number may hop across the equals), ring a piece, cover the signs,
-     show the sign row, show a small sum, show the finished sum, and say one line. */
+     show the sign row, show a small sum, show the finished sum, and say one line.
+     Gives back how long its own moves take (ms), so whatever comes next waits for them to end. */
+  const rise = el => { el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); };
   function applyThen(R, ui, t, q) {
-    if (t.line) { if (t.hop) hop(R, ui, t.line, t.hop); else setLine(ui, t.line); ui.srow.hidden = true; ui.dsum.hidden = true; }
+    let moves = 0;
+    if (t.line) { if (t.hop) { hop(R, ui, t.line, t.hop); moves = PACE.hop; } else setLine(ui, t.line); ui.srow.hidden = true; ui.dsum.hidden = true; }
     if (t.mark) mark(ui, t.mark);
-    if (t.cover) { ui.line.querySelectorAll('.lit, .mark').forEach(el => el.classList.remove('lit', 'mark')); ui.line.classList.add('cover'); }
+    if (t.cover) {                                                // the tape lands on one sign at a time; the small sum waits for the last one
+      ui.line.querySelectorAll('.lit, .mark').forEach(el => el.classList.remove('lit', 'mark')); ui.line.classList.add('cover');
+      const taped = MK.tape(R, ui.line); if (taped) moves = taped + PACE.sum;
+    }
     if (t.srow) { ui.srow.innerHTML = srowHtml(t.srow, { pop: true }); ui.srow.hidden = false; }
-    if (t.dsum) { ui.dsum.innerHTML = tx(t.dsum); ui.dsum.hidden = false; }
-    if (t.full) showFull(ui, q);
+    if (t.dsum) {
+      ui.dsum.innerHTML = tx(t.dsum); ui.dsum.hidden = false;
+      if (t.cover && moves) { ui.dsum.classList.add('hold'); R.later(() => { ui.dsum.classList.remove('hold'); rise(ui.dsum); }, moves); }   // its place is kept, so the sum above does not jump
+      else { ui.dsum.classList.remove('hold'); rise(ui.dsum); }
+    }
+    if (t.full) { const was = ui.line.classList.contains('cover'); showFull(ui, q); if (was) ui.line.classList.add('sback'); }   // the signs come back
     if (t.say) { ui.keep = t.say; say(ui, t.say); }
+    return moves;
   }
-  /* Several of those, one after another, each given time to be read. */
-  function play(R, ui, thens, q, done, gap) {
+  /* Several of those, one after another. Each waits for its own moves to end, then stays `gap` ms to be read (`last` for the final one). */
+  function play(R, ui, thens, q, done, gap, last) {
     const list = [].concat(thens || []); let k = 0;
-    const next = () => { if (k >= list.length) return done(); const t = list[k++]; applyThen(R, ui, t, q); R.later(next, t.hop ? gap + 600 : gap); };
+    const next = () => { if (k >= list.length) return done(); const t = list[k++], moves = applyThen(R, ui, t, q); R.later(next, (last && k >= list.length ? last : gap) + moves); };
     next();
   }
 
@@ -331,11 +346,11 @@
         FX.chime('right'); FX.at(ui.pic, 20);
         nextBtn(R, ui, () => { i++; if (i < n) show(); else seeEnd(R, host, L, ctx, n, marks, again); });
       };
-      runSteps(R, ui, q, L, 'see', q.see, i, n, 1500, () => {
+      runSteps(R, ui, q, L, 'see', q.see, i, n, PACE.see, () => {
         const fin = q.fin || [];
         if (!fin.length) return end();
         ui.ctl.onclick = null; ui.ctl.innerHTML = HEAD; ui.job.textContent = WATCH; hook(L, 'see', 'watch', q, i, n);
-        play(R, ui, fin, q, end, 2000);
+        play(R, ui, fin, q, end, PACE.watch, PACE.last);
       });
     };
     show();
@@ -349,7 +364,7 @@
       const q = qs[i], last = i === n - 1, ui = frame(host, q, '', `${i + 1} of ${n}`, dots(marks, i, n));
       const label = last ? 'Start the quiz' : 'Next one';
       const onNext = () => { if (last) { ctx.done('try'); location.hash = ctx.base + '/quiz'; } else { i++; ask(); } };
-      runSteps(R, ui, q, L, 'try', q.try, i, n, 1200, step => {
+      runSteps(R, ui, q, L, 'try', q.try, i, n, PACE.tryIt, step => {
         hook(L, 'try', 'pad', q, i, n); ui.job.innerHTML = tx(step ? step.job : q.job);
         finalPad(R, ui, q, { goes: 3, done: r => {
           marks[i] = true; ui.count.innerHTML = `<span>${i + 1} of ${n}</span>${dots(marks, -1, n)}`;
@@ -392,7 +407,7 @@
       if (p.before) applyThen(R, ui, p.before, pq);
       choose(R, ui, { html: `<div class="duo">${w.options.map((o, j) => opt(j, tx(o.label), { words: true })).join('')}</div>`, answer: String(w.options.findIndex(o => o.right)),
         wrong: () => w.why,
-        done: () => { if (p.after) applyThen(R, ui, p.after, pq); say(ui, w.why); R.later(() => warmUp(k + 1), p.after && p.after.hop ? 2400 : 1700); } });
+        done: () => { const moves = p.after ? applyThen(R, ui, p.after, pq) : 0; say(ui, w.why); R.later(() => warmUp(k + 1), PACE.warm + moves); } });
     };
     const ask = () => {
       const q = qs[i], t0 = Date.now(), last = i === n - 1, label = `Question ${i + 1} of ${n}`, ui = frame(host, q, tx(q.job), label, dots(marks, i, n));
