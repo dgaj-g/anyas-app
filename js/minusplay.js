@@ -341,7 +341,7 @@
           say(ui, w.why);
           let t = 0;
           if (idx < 2) merge(R, ui, q); else if (idx < 4) settleDots(ui, q); else t = cover(R, ui, q, idx === 4 ? 1400 : 0);
-          R.later(() => warmUp(k + 1), t ? t + 2200 : 1500);                 // after the last move, time to look at it
+          R.later(() => warmUp(k + 1), t + 2200);                            // after the last move, time to read the line (the pace gate times this)
         } });
     };
     const ask = () => {
